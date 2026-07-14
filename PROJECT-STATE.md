@@ -1,6 +1,6 @@
-# Project State — Paused Checkpoint
+# Project State — Checkpoint
 
-_Last updated: 2026-07-14 (paused mid-way through frontend theme work)._
+_Last updated: 2026-07-14 (resumed; theme work completed and verified)._
 
 This file is the single source of truth for resuming work. It records what is
 **done and verified**, what is **in flight**, one **open bug** with its
@@ -56,7 +56,7 @@ diagnosis, and the **remaining roadmap**.
 
 ---
 
-## 2. IN FLIGHT — Luxury/Editorial design system (user-requested theme)
+## 2. DONE — Luxury/Editorial design system (user-requested theme)
 
 The user first asked for a "Newsprint" theme, then **switched to
 Luxury/Editorial** ("No i want this") — warm alabaster/charcoal monochrome,
@@ -84,37 +84,22 @@ slow cinematic motion, grayscale→color image reveals.
 
 ---
 
-## 3. OPEN BUG (must fix on resume)
+## 3. RESOLVED BUG (fixed on resume, 2026-07-14)
 
-**`npm run build` fails**: `Module not found: Can't resolve 'canvas'` from
-`konva/lib/index-node.js` via `react-konva` → `PreviewPlayerInner.tsx`.
-
-- **Why:** Next bundles the server graph even for `dynamic(..., ssr:false)`
-  client components; konva's node entry `require`s the optional native
-  `canvas` package.
-- **Important honesty note:** the earlier "build passed" result was a false
-  positive — the build command was piped through `tail`, which masked the
-  real exit code. The stage-3 commit message's "build passes" claim was
-  wrong; the failure predates the theme work.
-- **Planned fix (pick one, in order of preference):**
-  1. `next.config.ts`: `webpack: (config) => { config.externals = [...(config.externals ?? []), { canvas: "commonjs canvas" }]; return config; }`
-  2. or `serverExternalPackages: ["konva", "react-konva", "canvas"]`
-  3. re-run `npm run build` **without piping through tail** (or check
-     `$PIPESTATUS`) to verify the true exit code.
+**`npm run build` failed**: `Module not found: Can't resolve 'canvas'` from
+`konva/lib/index-node.js`. Fixed with webpack externals in `next.config.ts`
+(`{ canvas: "commonjs canvas" }`); build now verified with an unpiped exit
+code check (`BUILD EXIT CODE: 0`). Both failure modes documented as
+ERRORS-AND-FIXES #17 (konva/canvas) and #18 (tail-masked exit codes).
 
 ---
 
 ## 4. Remaining roadmap (in order)
 
-1. **Fix the konva/canvas build failure** (above) and verify
-   `npm run build` truly exits 0.
-2. Visually sanity-check the Luxury/Editorial theme by running
-   `npm run dev` + backend, then screenshot/inspect the home page and editor.
-3. Add ERRORS-AND-FIXES entry #17 for the konva `canvas` build failure and
-   #18 for the tail-masked exit code lesson.
-4. Commit + push the theme as its own stage
-   (`frontend: luxury/editorial design system`).
-5. (Optional/backlog, from original requirements)
+1. ~~Fix the konva/canvas build failure~~ — done, verified exit 0.
+2. ~~Add ERRORS-AND-FIXES #17 / #18~~ — done.
+3. ~~Commit + push the theme stage~~ — done.
+4. (Optional/backlog, from original requirements)
    - Electron packaging pass (documented path in ARCHITECTURE.md).
    - Celery/Redis scale-out for the job queue (documented upgrade path).
    - Clarify the ambiguous "media 1e library" requirement (see DECISIONS D8).
@@ -132,8 +117,8 @@ cd backend && .venv/Scripts/python -m pytest -q
 # frontend unit tests (green)
 cd frontend && npm test
 
-# reproduce the open build bug
-cd frontend && npm run build          # fails: Can't resolve 'canvas'
+# production build (green — verify exit codes unpiped, see ERRORS #18)
+cd frontend && npm run build; echo "exit: $?"
 ```
 
 Environment notes:

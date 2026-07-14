@@ -139,6 +139,11 @@ reporting); stdout remains the sole live pipe. `subprocess.run(...,
 capture_output=True)` elsewhere is safe because `run()` drains both pipes
 concurrently.
 
+## 15. Windows paths inside filter graphs
+
+Backslashes in `fontfile=` are parsed as escapes. **Fix:** all paths fed into
+filters are normalised to forward slashes first.
+
 ## 16. Per-clip `fps=` filter silently inflates trimmed clips (ffmpeg 4.x)
 
 **Symptom:** a timeline expected to render 1.5s came out 2.5s; per-stream
@@ -156,7 +161,30 @@ fps was never necessary. Verified by
 `test_export_two_clips_with_overlay_and_silent_source` asserting output
 duration ≈ 1.5s.
 
-## 15. Windows paths inside filter graphs
+## 17. Next.js build fails: konva can't resolve `canvas`
 
-Backslashes in `fontfile=` are parsed as escapes. **Fix:** all paths fed into
-filters are normalised to forward slashes first.
+**Symptom:** `npm run build` → `Module not found: Can't resolve 'canvas'`
+from `konva/lib/index-node.js` via `react-konva`.
+**Why:** Next bundles the *server* module graph even for components loaded
+with `dynamic(..., { ssr: false })`. konva's Node entry point `require`s the
+optional native `canvas` package, which isn't (and shouldn't be) installed —
+we only ever render Konva in the browser.
+**Fix:** mark it external in `next.config.ts`:
+```ts
+webpack: (config) => {
+  config.externals = [...(config.externals ?? []), { canvas: "commonjs canvas" }];
+  return config;
+},
+```
+
+## 18. Piping build output through `tail` masks the exit code
+
+**Symptom:** a CI-style check reported the frontend build as passing while it
+was actually failing (error #17 existed the whole time).
+**Why:** `npm run build 2>&1 | tail -25` reports the exit code of `tail`,
+not the build. Classic shell pipeline trap.
+**Fix / rule:** never gate on a piped command. Either check `PIPESTATUS`,
+use `set -o pipefail`, or redirect to a log file and echo `$?` explicitly:
+```bash
+npm run build > build.log 2>&1; echo "exit: $?"
+```

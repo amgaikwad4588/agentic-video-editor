@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     return [{ source: "/api/:path*", destination: `${BACKEND}/api/:path*` }];
   },
   output: "standalone",
+  // konva's node entry `require`s the optional native 'canvas' package.
+  // Next bundles the server graph even for ssr:false dynamic imports, so the
+  // build fails with "Can't resolve 'canvas'" unless it's marked external
+  // (docs/ERRORS-AND-FIXES.md #17). We never render Konva on the server.
+  webpack: (config) => {
+    config.externals = [...(config.externals ?? []), { canvas: "commonjs canvas" }];
+    return config;
+  },
 };
 
 export default nextConfig;
