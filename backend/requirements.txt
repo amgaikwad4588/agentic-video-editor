@@ -8,8 +8,9 @@ pydantic==2.10.4
 pydantic-settings==2.7.0
 sqlmodel==0.0.22
 
-# AI agent
+# AI agent (either provider works; auto-selected by which API key is set)
 anthropic==0.49.0
+google-genai>=1.0,<2
 
 # FFmpeg: imageio-ffmpeg bundles a static ffmpeg binary so the app works even
 # when ffmpeg is not installed on the host (Windows dev machines, CI).

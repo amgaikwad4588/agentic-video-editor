@@ -172,8 +172,10 @@ async def test_engine_iteration_cap(settings, monkeypatch):
 # ---- Router ------------------------------------------------------------------
 
 def test_agent_endpoint_503_without_key(client, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    for key in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
     pid = client.post("/api/projects", json={"name": "A"}).json()["id"]
     r = client.post(f"/api/projects/{pid}/agent", json={"message": "trim the video"})
     assert r.status_code == 503
     assert "ANTHROPIC_API_KEY" in r.json()["detail"]
+    assert "GEMINI_API_KEY" in r.json()["detail"]

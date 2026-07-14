@@ -10,7 +10,7 @@ through validated tools.
 | Frontend | Next.js 15, React 19, Konva (react-konva) | official React canvas bindings for the overlay preview |
 | Backend | FastAPI, SQLModel/SQLite, asyncio job queue | typed API, zero-ops persistence, non-blocking renders |
 | Video engine | FFmpeg (system or bundled via imageio-ffmpeg) | industry-standard server-side rendering |
-| Agent | Claude API (`claude-opus-4-8`) tool use | strict-schema tools + validating executor, no fine-tuning needed |
+| Agent | Claude (`claude-opus-4-8`) or Gemini (`gemini-2.5-flash`) tool use | strict-schema tools + validating executor, no fine-tuning needed |
 | Deploy | Docker Compose | one command, volume-backed media store |
 
 ## Quick start (dev, no Docker)
@@ -36,8 +36,9 @@ npm run dev                          # http://localhost:3000
 The frontend proxies `/api/*` to the backend (`next.config.ts` rewrites), so
 there is no CORS setup in dev.
 
-Without an `ANTHROPIC_API_KEY` everything works except the chat panel, which
-returns a clear 503 telling you what to set.
+The agent chat works with **either** `ANTHROPIC_API_KEY` (Claude) or
+`GEMINI_API_KEY` (Google Gemini — has a free tier); set one in `.env`.
+Without a key everything else still works and the chat returns a clear 503.
 
 ## Deployment
 
@@ -45,8 +46,8 @@ returns a clear 503 telling you what to set.
   on Vercel from `frontend/`.
 - **Backend:** deploy with the one-click [Render Blueprint](render.yaml):
   Render dashboard → New → Blueprint → select this repo → Apply (set
-  `ANTHROPIC_API_KEY` when prompted). The API can't run on Vercel because
-  renders are long-lived background jobs with files on disk.
+  `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` when prompted). The API can't run
+  on Vercel because renders are long-lived background jobs with files on disk.
 - **Connect the two:** once the Render service is live, set `BACKEND_URL` to
   its URL in the Vercel project settings (Production env) and redeploy the
   frontend; the `/api/*` rewrite then proxies to it.

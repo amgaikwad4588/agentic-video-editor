@@ -36,9 +36,13 @@ class Settings(BaseSettings):
     # resolved lazily in services/ffmpeg.py when this is empty.
     font_path: str = ""
 
-    # Agent
+    # Agent — two supported providers; auto-selected by whichever key is set
+    # (Anthropic wins if both). Force one with AGENT_PROVIDER=anthropic|gemini.
+    agent_provider: str = ""
     anthropic_api_key: str = ""
     agent_model: str = "claude-opus-4-8"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
     agent_max_tokens: int = 16000
     # Safety valve for the tool-use loop; each iteration is one API round trip.
     agent_max_iterations: int = 12

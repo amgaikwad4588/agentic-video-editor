@@ -16,7 +16,8 @@ from sqlmodel import Session
 # Isolate all app data into a temp dir BEFORE app modules read settings.
 _TMP = tempfile.mkdtemp(prefix="ave-test-")
 os.environ["DATA_DIR"] = _TMP
-os.environ.pop("ANTHROPIC_API_KEY", None)
+for _key in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+    os.environ.pop(_key, None)
 
 from app.config import get_settings          # noqa: E402
 from app.db import get_engine, reset_engine  # noqa: E402

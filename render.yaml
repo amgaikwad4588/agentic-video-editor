@@ -24,8 +24,12 @@ services:
     plan: free
     healthCheckPath: /api/health
     envVars:
-      - key: ANTHROPIC_API_KEY
+      # Set ONE of these for the agent chat (Gemini has a free tier).
+      # Anthropic is preferred when both are present; AGENT_PROVIDER overrides.
+      - key: GEMINI_API_KEY
         sync: false          # prompted in the dashboard; never committed
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: CORS_ORIGINS
         value: '["https://agentic-video-editor-zeta.vercel.app"]'
     # disk:                  # requires paid plan; persists media + SQLite
