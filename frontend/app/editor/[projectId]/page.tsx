@@ -122,7 +122,7 @@ export default function EditorPage({
           />
         </div>
 
-        <div className="panel editor-timeline" style={{ gridColumn: "2 / 3" }}>
+        <div className="panel editor-timeline">
           <TimelineStrip
             timeline={project.timeline}
             assets={assetMap}

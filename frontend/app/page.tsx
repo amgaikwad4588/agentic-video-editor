@@ -10,21 +10,41 @@ export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [backendDown, setBackendDown] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const refresh = useCallback(() => {
-    api.listProjects().then(setProjects).catch((e) => setError(String(e.message)));
+    api
+      .listProjects()
+      .then((p) => {
+        setProjects(p);
+        setBackendDown(false);
+      })
+      .catch(() => setBackendDown(true));
   }, []);
 
   useEffect(refresh, [refresh]);
 
   async function create() {
-    if (!name.trim()) return;
+    if (!name.trim() || creating) return;
+    setCreating(true);
+    setError(null);
     try {
       const project = await api.createProject(name.trim());
       setName("");
       setProjects((p) => [project, ...p]);
+      setBackendDown(false);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      // A failed fetch (or proxy 502/404) means the API isn't reachable —
+      // distinguish that from a real validation error.
+      if (msg.toLowerCase().includes("fetch") || /50\d|404/.test(msg)) {
+        setBackendDown(true);
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -53,15 +73,71 @@ export default function HomePage() {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && create()}
           />
-          <button className="primary" onClick={create}>
-            Begin
+          <button className="primary" onClick={create} disabled={creating}>
+            {creating ? "Opening…" : "Begin"}
           </button>
         </div>
-        {error && (
-          <p className="muted" style={{ marginTop: 16, fontStyle: "italic" }}>
-            {error}
-          </p>
+
+        {backendDown && (
+          <div className="notice" role="alert">
+            <span className="overline">The studio is dark</span>
+            The editing backend isn&apos;t reachable, so projects can&apos;t be
+            created or listed. Running locally? Start the API with{" "}
+            <code style={{ fontStyle: "normal" }}>uvicorn app.main:app --port 8000</code>.
+            Viewing the hosted demo? The API must be deployed and connected —
+            see the README&apos;s Deployment section.
+          </div>
         )}
+        {error && (
+          <div className="notice" role="alert">
+            <span className="overline">A note from the desk</span>
+            {error}
+          </div>
+        )}
+      </section>
+
+      <section className="home-content" style={{ paddingBottom: 96 }}>
+        <p className="overline ruled">The Cutting Room — in pictures</p>
+
+        <div className="gallery">
+          <figure className="shot shot-main" style={{ margin: 0 }}>
+            <span className="vertical-label">Atelier — the cutting room</span>
+            <img
+              src="/shots/editor.jpg"
+              alt="The editor: media archive, cinema preview with a burned-in caption, agent correspondence panel and the timeline"
+              width={1600}
+              height={1000}
+            />
+            <figcaption>
+              <span>Fig. 01 — The cutting room, mid-session</span>
+            </figcaption>
+          </figure>
+
+          <div className="shot-side">
+            <figure className="shot" style={{ margin: 0 }}>
+              <img
+                src="/shots/chat.jpg"
+                alt="The correspondence panel where you direct the agent in plain language"
+                width={640}
+                height={860}
+              />
+              <figcaption>
+                <span>Fig. 02 — Directing by correspondence</span>
+              </figcaption>
+            </figure>
+            <figure className="shot" style={{ margin: 0 }}>
+              <img
+                src="/shots/timeline.jpg"
+                alt="The timeline: draggable clips with trim, speed and volume controls"
+                width={1200}
+                height={420}
+              />
+              <figcaption>
+                <span>Fig. 03 — The cut, clip by clip</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
       </section>
 
       <section className="home-content">
@@ -84,9 +160,14 @@ export default function HomePage() {
               </div>
             </Link>
           ))}
-          {projects.length === 0 && !error && (
+          {projects.length === 0 && !backendDown && (
             <p className="muted serif" style={{ fontStyle: "italic", fontSize: 18 }}>
               Nothing here yet — every collection begins with a single piece.
+            </p>
+          )}
+          {projects.length === 0 && backendDown && (
+            <p className="muted serif" style={{ fontStyle: "italic", fontSize: 18 }}>
+              The collection will appear once the studio backend is connected.
             </p>
           )}
           {projects.length > 0 && <div style={{ borderTop: "1px solid var(--hairline)" }} />}
