@@ -54,7 +54,7 @@ export default function ChatPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      <strong style={{ marginBottom: 8 }}>Agent</strong>
+      <span className="overline" style={{ marginBottom: 12 }}>Correspondence</span>
 
       <div className="chat-messages">
         {messages.length === 0 && (

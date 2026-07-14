@@ -56,21 +56,32 @@ export default function EditorPage({
 
   if (error && !project) {
     return (
-      <main style={{ padding: 24 }}>
-        <p style={{ color: "var(--danger)" }}>{error}</p>
-        <Link href="/">← back to projects</Link>
+      <main style={{ padding: 48 }}>
+        <p className="serif" style={{ fontStyle: "italic", fontSize: 18 }}>{error}</p>
+        <Link href="/" className="overline">← Back to the collection</Link>
       </main>
     );
   }
-  if (!project) return <main style={{ padding: 24 }}>Loading…</main>;
+  if (!project) {
+    return (
+      <main style={{ padding: 48 }}>
+        <p className="serif muted" style={{ fontStyle: "italic" }}>Preparing the room…</p>
+      </main>
+    );
+  }
 
   return (
     <main>
       <div className="topbar">
-        <Link href="/" className="muted">← Projects</Link>
-        <h1>{project.name}</h1>
+        <Link href="/">← The Collection</Link>
+        <h1 className="serif">{project.name}</h1>
+        <span className="overline">In the cutting room</span>
         <div style={{ flex: 1 }} />
-        {error && <span style={{ color: "var(--danger)" }}>{error}</span>}
+        {error && (
+          <span className="muted" style={{ fontStyle: "italic", fontSize: 13 }}>
+            {error}
+          </span>
+        )}
         <ExportPanel projectId={project.id} hasClips={project.timeline.clips.length > 0} />
       </div>
 

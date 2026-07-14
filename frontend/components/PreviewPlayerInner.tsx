@@ -119,7 +119,12 @@ export default function PreviewPlayerInner({
     <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0 }}>
       <div
         ref={containerRef}
-        style={{ position: "relative", background: "#000", borderRadius: 8, overflow: "hidden" }}
+        style={{
+          position: "relative",
+          background: "#1A1A1A",
+          overflow: "hidden",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(0,0,0,0.06)",
+        }}
       >
         <video
           ref={videoRef}
@@ -161,9 +166,11 @@ export default function PreviewPlayerInner({
                 <Text
                   x={16}
                   y={size.h / 2 - 10}
-                  text="Timeline is empty — add clips from the media library"
+                  text="An empty timeline — add a piece from the archive"
                   fontSize={16}
-                  fill="#8b93a3"
+                  fontStyle="italic"
+                  fontFamily="Georgia"
+                  fill="#EBE5DE"
                 />
               )}
             </Layer>

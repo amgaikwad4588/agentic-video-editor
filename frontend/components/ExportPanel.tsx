@@ -46,7 +46,9 @@ export default function ExportPanel({
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      {error && <span style={{ color: "var(--danger)", fontSize: 12 }}>{error}</span>}
+      {error && (
+        <span className="muted" style={{ fontStyle: "italic", fontSize: 12 }}>{error}</span>
+      )}
 
       {job?.status === "queued" || job?.status === "running" ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 180 }}>
@@ -65,7 +67,11 @@ export default function ExportPanel({
         </a>
       )}
       {job?.status === "failed" && (
-        <span style={{ color: "var(--danger)", fontSize: 12 }} title={job.error ?? ""}>
+        <span
+          className="overline"
+          style={{ borderBottom: "1px solid var(--accent)" }}
+          title={job.error ?? ""}
+        >
           Export failed
         </span>
       )}

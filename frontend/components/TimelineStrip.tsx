@@ -34,7 +34,7 @@ export default function TimelineStrip({
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <strong>Timeline</strong>
+        <span className="overline">The Cut</span>
         {selected && (
           <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>
             <label>

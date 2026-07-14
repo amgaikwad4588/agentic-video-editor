@@ -39,7 +39,7 @@ export default function MediaLibrary({
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <strong>Media</strong>
+        <span className="overline">The Archive</span>
         <button onClick={() => fileInput.current?.click()} disabled={uploading}>
           {uploading ? "Uploading…" : "+ Upload"}
         </button>
@@ -53,7 +53,9 @@ export default function MediaLibrary({
         />
       </div>
 
-      {error && <p style={{ color: "var(--danger)", fontSize: 12 }}>{error}</p>}
+      {error && (
+        <p className="muted" style={{ fontStyle: "italic", fontSize: 12 }}>{error}</p>
+      )}
 
       <div style={{ marginTop: 10 }}>
         {assets.map((a) => (
@@ -85,7 +87,11 @@ export default function MediaLibrary({
             </button>
           </div>
         ))}
-        {assets.length === 0 && <p className="muted">Upload video, audio or images.</p>}
+        {assets.length === 0 && (
+          <p className="muted serif" style={{ fontStyle: "italic" }}>
+            Upload video, audio or images to begin.
+          </p>
+        )}
       </div>
     </div>
   );
