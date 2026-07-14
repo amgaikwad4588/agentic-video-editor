@@ -8,8 +8,9 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# The rewrite target is read at runtime start, but Next inlines nothing here
-# because we only use relative /api paths in the client.
+# DOCKER_BUILD switches next.config.ts to standalone output (self-hosted);
+# Vercel builds without it and uses its native output format.
+ENV DOCKER_BUILD=1
 RUN npm run build
 
 FROM node:22-alpine AS run

@@ -39,6 +39,18 @@ there is no CORS setup in dev.
 Without an `ANTHROPIC_API_KEY` everything works except the chat panel, which
 returns a clear 503 telling you what to set.
 
+## Deployment
+
+- **Frontend (live):** https://agentic-video-editor-zeta.vercel.app — deployed
+  on Vercel from `frontend/`.
+- **Backend:** deploy with the one-click [Render Blueprint](render.yaml):
+  Render dashboard → New → Blueprint → select this repo → Apply (set
+  `ANTHROPIC_API_KEY` when prompted). The API can't run on Vercel because
+  renders are long-lived background jobs with files on disk.
+- **Connect the two:** once the Render service is live, set `BACKEND_URL` to
+  its URL in the Vercel project settings (Production env) and redeploy the
+  frontend; the `/api/*` rewrite then proxies to it.
+
 ## Quick start (Docker)
 
 ```bash

@@ -26,6 +26,9 @@ backend/data/
 *.db
 *.sqlite3
 
+# Deployment
+.vercel/
+
 # OS / editor
 .DS_Store
 Thumbs.db

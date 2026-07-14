@@ -8,7 +8,8 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${BACKEND}/api/:path*` }];
   },
-  output: "standalone",
+  // standalone is for the Docker image only; Vercel uses its native builder.
+  output: process.env.DOCKER_BUILD ? "standalone" : undefined,
   // konva's node entry `require`s the optional native 'canvas' package.
   // Next bundles the server graph even for ssr:false dynamic imports, so the
   // build fails with "Can't resolve 'canvas'" unless it's marked external
