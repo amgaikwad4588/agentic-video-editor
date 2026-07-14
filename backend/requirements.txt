@@ -1,0 +1,20 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Data & validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+sqlmodel==0.0.22
+
+# AI agent
+anthropic==0.49.0
+
+# FFmpeg: imageio-ffmpeg bundles a static ffmpeg binary so the app works even
+# when ffmpeg is not installed on the host (Windows dev machines, CI).
+# In Docker we install real ffmpeg via apt and it takes precedence.
+imageio-ffmpeg==0.5.1
+
+# Async file IO for uploads
+aiofiles==24.1.0
