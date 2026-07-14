@@ -1,0 +1,20 @@
+Agentic video editor 
+
+web based
+
+textstack - nextjs., fast api, docker
+
+video editor reated libraries
+
+SSMepg library for video processing
+
+electron app
+
+media 1e library
+
+fabric js, kondla js, fixie js
+
+agent finetuning, model architecture designing
+
+
+these are the requirements, add as much as you can do , make the app production ready . do all testing, document everything you write and do also why? and what error  you will face push on each sucessfull stage and do not mention claude 
