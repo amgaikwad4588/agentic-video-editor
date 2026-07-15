@@ -21,6 +21,8 @@ export interface TextOverlay {
   end: number | null;
 }
 
+export type ClipFilter = "none" | "grayscale" | "sepia";
+
 export interface Clip {
   id: string;
   asset_id: string;
@@ -28,6 +30,9 @@ export interface Clip {
   end: number | null;
   speed: number;
   volume: number;
+  fade_in: number;
+  fade_out: number;
+  filter: ClipFilter;
   overlays: TextOverlay[];
 }
 

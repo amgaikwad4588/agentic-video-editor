@@ -130,7 +130,19 @@ export default function PreviewPlayerInner({
           ref={videoRef}
           width={size.w}
           height={size.h}
-          style={{ display: "block", width: "100%", aspectRatio: "16/9", objectFit: "contain" }}
+          style={{
+            display: "block",
+            width: "100%",
+            aspectRatio: "16/9",
+            objectFit: "contain",
+            // Mirror the clip's colour treatment so the preview matches export.
+            filter:
+              pos?.clip.filter === "grayscale"
+                ? "grayscale(1)"
+                : pos?.clip.filter === "sepia"
+                  ? "sepia(1)"
+                  : undefined,
+          }}
           muted={pos?.clip.volume === 0}
         />
         {/* Konva layer mirrors what drawtext will burn in at export */}

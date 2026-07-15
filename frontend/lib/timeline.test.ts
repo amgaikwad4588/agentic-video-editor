@@ -12,7 +12,8 @@ const asset = (id: string, duration: number): MediaAsset => ({
 
 const clip = (over: Partial<Clip>): Clip => ({
   id: Math.random().toString(36).slice(2),
-  asset_id: "a", start: 0, end: null, speed: 1, volume: 1, overlays: [],
+  asset_id: "a", start: 0, end: null, speed: 1, volume: 1,
+  fade_in: 0, fade_out: 0, filter: "none", overlays: [],
   ...over,
 });
 

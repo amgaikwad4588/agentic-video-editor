@@ -34,9 +34,16 @@ export default function TimelineStrip({
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="overline">The Cut</span>
+        <span className="overline">
+          The Cut
+          {timeline.clips.length > 1 && (
+            <span style={{ marginLeft: 10, letterSpacing: "0.08em", textTransform: "none" }}>
+              (drag clips to reorder, click to edit)
+            </span>
+          )}
+        </span>
         {selected && (
-          <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <label>
               Start{" "}
               <input
@@ -86,6 +93,41 @@ export default function TimelineStrip({
                 onChange={(e) => patchSelected({ volume: Number(e.target.value) })}
               />
             </label>
+            <label>
+              Fade in{" "}
+              <input
+                style={{ width: 52, padding: "2px 6px" }}
+                type="number"
+                min={0}
+                max={30}
+                step={0.1}
+                value={selected.fade_in ?? 0}
+                onChange={(e) => patchSelected({ fade_in: Number(e.target.value) || 0 })}
+              />
+            </label>
+            <label>
+              Fade out{" "}
+              <input
+                style={{ width: 52, padding: "2px 6px" }}
+                type="number"
+                min={0}
+                max={30}
+                step={0.1}
+                value={selected.fade_out ?? 0}
+                onChange={(e) => patchSelected({ fade_out: Number(e.target.value) || 0 })}
+              />
+            </label>
+            <label>
+              Look{" "}
+              <select
+                value={selected.filter ?? "none"}
+                onChange={(e) => patchSelected({ filter: e.target.value as Clip["filter"] })}
+              >
+                <option value="none">Colour</option>
+                <option value="grayscale">B &amp; W</option>
+                <option value="sepia">Sepia</option>
+              </select>
+            </label>
             <button
               className="danger"
               onClick={() => {
@@ -132,7 +174,9 @@ export default function TimelineStrip({
               <div className="badges">
                 {clip.speed !== 1 && <span>⚡{clip.speed}x </span>}
                 {clip.volume !== 1 && <span>🔊{clip.volume} </span>}
-                {clip.overlays.length > 0 && <span>💬{clip.overlays.length}</span>}
+                {clip.overlays.length > 0 && <span>💬{clip.overlays.length} </span>}
+                {(clip.fade_in > 0 || clip.fade_out > 0) && <span>◐fade </span>}
+                {clip.filter && clip.filter !== "none" && <span>{clip.filter === "grayscale" ? "b/w" : clip.filter}</span>}
               </div>
             </div>
           );

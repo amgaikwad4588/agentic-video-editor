@@ -7,6 +7,7 @@ import ChatPanel from "@/components/ChatPanel";
 import ExportPanel from "@/components/ExportPanel";
 import MediaLibrary from "@/components/MediaLibrary";
 import PreviewPlayer from "@/components/PreviewPlayer";
+import ThemeToggle from "@/components/ThemeToggle";
 import TimelineStrip from "@/components/TimelineStrip";
 import { api } from "@/lib/api";
 import type { MediaAsset, Project, Timeline } from "@/lib/types";
@@ -82,6 +83,7 @@ export default function EditorPage({
             {error}
           </span>
         )}
+        <ThemeToggle />
         <ExportPanel projectId={project.id} hasClips={project.timeline.clips.length > 0} />
       </div>
 
@@ -98,6 +100,9 @@ export default function EditorPage({
                 end: null,
                 speed: 1,
                 volume: 1,
+                fade_in: 0,
+                fade_out: 0,
+                filter: "none" as const,
                 overlays: [],
               };
               saveTimeline({ clips: [...project.timeline.clips, clip] });
