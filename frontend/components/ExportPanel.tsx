@@ -47,7 +47,7 @@ export default function ExportPanel({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       {error && (
-        <span className="muted" style={{ fontStyle: "italic", fontSize: 12 }}>{error}</span>
+        <span className="muted" style={{ fontStyle: "italic", fontSize: 14 }}>{error}</span>
       )}
 
       {job?.status === "queued" || job?.status === "running" ? (

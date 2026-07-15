@@ -6,11 +6,11 @@
    ========================================================================== */
 
 :root {
-  --bg: #F9F8F6;            /* warm alabaster — never pure white */
-  --fg: #1A1A1A;            /* rich charcoal — never pure black */
+  --bg: #F9F8F6;            /* warm alabaster, never pure white */
+  --fg: #1A1A1A;            /* rich charcoal, never pure black */
   --muted-bg: #EBE5DE;      /* pale taupe */
-  --muted-fg: #6C6863;      /* warm grey */
-  --accent: #D4AF37;        /* metallic gold — accents only */
+  --muted-fg: #625E59;      /* warm grey, darkened for contrast */
+  --accent: #D4AF37;        /* metallic gold, accents only */
   --accent-fg: #FFFFFF;
 
   --hairline: rgba(26, 26, 26, 0.14);
@@ -18,6 +18,13 @@
 
   --font-body: var(--font-sans), "Helvetica Neue", sans-serif;
   --font-serif: var(--font-display), Georgia, serif;
+
+  /* Type scale: every font size on the site comes from these five steps. */
+  --text-xs: 12px;   /* overlines, labels, badges, captions */
+  --text-sm: 14px;   /* secondary text, inputs in tight spots */
+  --text-md: 16px;   /* body, chat, inputs */
+  --text-lg: 18px;   /* serif emphasis lines */
+  --text-xl: 26px;   /* panel/topbar titles */
 
   --ease-lux: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
@@ -30,7 +37,7 @@ html, body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: var(--text-md);
   line-height: 1.625;
   -webkit-font-smoothing: antialiased;
 }
@@ -74,14 +81,14 @@ html, body {
 
 .overline {
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.22em;
   color: var(--muted-fg);
 }
 
-/* decorative rule before labels: — LABEL */
+/* decorative rule drawn before labels */
 .overline.ruled { display: inline-flex; align-items: center; gap: 12px; }
 .overline.ruled::before {
   content: "";
@@ -107,10 +114,10 @@ h1, h2, h3 {
 
 button {
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   color: var(--fg);
   background: transparent;
   border: 1px solid var(--fg);
@@ -157,7 +164,7 @@ button.danger:hover:not(:disabled) {
 
 input, textarea {
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--fg);
   background: transparent;
   border: none;
@@ -198,7 +205,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   z-index: 1;
   display: grid;
   grid-template-columns: 280px 1fr 340px;
-  grid-template-rows: 1fr 230px;
+  grid-template-rows: 1fr 250px;
   gap: 16px;
   height: calc(100vh - 76px);
   padding: 16px 24px 20px;
@@ -237,15 +244,15 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   margin: 0 auto;
 }
 .topbar h1 {
-  font-size: 26px;
+  font-size: var(--text-xl);
   font-weight: 500;
 }
 .topbar a {
   color: var(--muted-fg);
   text-decoration: none;
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   transition: color 0.5s var(--ease-lux);
 }
 .topbar a:hover { color: var(--accent); }
@@ -274,17 +281,17 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
-.asset-card button { min-height: 32px; padding: 0 10px; letter-spacing: 0.1em; }
+.asset-card button { min-height: 34px; padding: 0 10px; letter-spacing: 0.1em; }
 
 /* ---- timeline strip -------------------------------------------------------- */
 
-.clip-strip { display: flex; gap: 12px; padding: 14px 2px; min-height: 96px; }
+.clip-strip { display: flex; gap: 12px; padding: 14px 2px; min-height: 104px; }
 .clip-block {
   position: relative;
-  min-width: 68px;
-  height: 84px;
+  min-width: 76px;
+  height: 92px;
   border: 1px solid var(--hairline);
   border-top: 2px solid var(--fg);
   background: var(--bg);
@@ -307,29 +314,29 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 }
 .clip-block .label {
   font-family: var(--font-serif);
-  font-size: 13px;
+  font-size: var(--text-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .clip-block .meta {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted-fg);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
 }
 .clip-block .badges {
   position: absolute;
   bottom: 6px;
   left: 10px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted-fg);
   letter-spacing: 0.06em;
 }
 
 /* clip inspector inputs sit inline; keep them compact */
-.editor-timeline label { font-size: 11px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.14em; }
-.editor-timeline input { font-size: 12px; padding: 4px 0; }
+.editor-timeline label { font-size: var(--text-xs); color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.1em; }
+.editor-timeline input { font-size: var(--text-sm); padding: 4px 0; }
 
 /* ---- chat ------------------------------------------------------------------- */
 
@@ -345,7 +352,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   padding: 12px 14px;
   max-width: 94%;
   white-space: pre-wrap;
-  font-size: 13.5px;
+  font-size: var(--text-sm);
   line-height: 1.625;
 }
 .msg.user {
@@ -359,7 +366,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   border-top: 1px solid var(--fg);
   border-bottom: 1px solid var(--hairline-soft);
   font-family: var(--font-serif);
-  font-size: 14.5px;
+  font-size: var(--text-md);
 }
 .msg.error {
   border-left: 2px solid var(--accent);
@@ -370,10 +377,34 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .msg .actions {
   margin-top: 10px;
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted-fg);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
+}
+
+/* clarifying-question choices: tappable, readable, no uppercase shouting */
+.chat-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.chat-options button {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  text-align: left;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--hairline);
+  border-left: 2px solid var(--accent);
+}
+.chat-options button:hover:not(:disabled) {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
 }
 
 /* ---- progress ----------------------------------------------------------------- */
@@ -472,16 +503,16 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   height: 1px;
   background: var(--fg);
 }
-.shot figcaption span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.24em; color: var(--muted-fg); }
+.shot figcaption span { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted-fg); }
 
 .vertical-label {
   position: absolute;
   top: 0;
   left: -40px;
   writing-mode: vertical-rl;
-  font-size: 10px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.24em;
   color: var(--muted-fg);
   display: none;
 }
@@ -497,7 +528,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   border-left: 2px solid var(--accent);
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 15px;
+  font-size: var(--text-md);
   color: var(--fg);
 }
 .notice .overline { font-style: normal; display: block; margin-bottom: 6px; }
@@ -513,7 +544,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .project-card:hover { background: rgba(26, 26, 26, 0.02); padding-left: 12px; }
 .project-card strong {
   font-family: var(--font-serif);
-  font-size: 26px;
+  font-size: var(--text-xl);
   font-weight: 500;
   transition: color 0.5s var(--ease-lux);
 }

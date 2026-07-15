@@ -166,7 +166,7 @@ export default function PreviewPlayerInner({
                 <Text
                   x={16}
                   y={size.h / 2 - 10}
-                  text="An empty timeline — add a piece from the archive"
+                  text="An empty timeline. Add a piece from the archive."
                   fontSize={16}
                   fontStyle="italic"
                   fontFamily="Georgia"

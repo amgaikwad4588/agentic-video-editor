@@ -36,7 +36,7 @@ export default function HomePage() {
       setBackendDown(false);
     } catch (e) {
       const msg = (e as Error).message;
-      // A failed fetch (or proxy 502/404) means the API isn't reachable —
+      // A failed fetch (or proxy 502/404) means the API isn't reachable;
       // distinguish that from a real validation error.
       if (msg.toLowerCase().includes("fetch") || /50\d|404/.test(msg)) {
         setBackendDown(true);
@@ -51,7 +51,7 @@ export default function HomePage() {
   return (
     <main>
       <section className="home-hero">
-        <p className="overline ruled">Atelier — Vol. 01</p>
+        <p className="overline ruled">Atelier, Vol. 01</p>
         <h1 style={{ marginTop: 28 }}>
           Cut with <em className="italic-accent">intention</em>.
         </h1>
@@ -60,7 +60,7 @@ export default function HomePage() {
           style={{ maxWidth: "44ch", marginTop: 32, fontSize: 16 }}
         >
           A video editor directed by language. Upload your footage, arrange the
-          timeline by hand — or simply describe the film you want and let the
+          timeline by hand, or simply describe the film you want and let the
           agent compose it.
         </p>
 
@@ -84,7 +84,7 @@ export default function HomePage() {
             The editing backend isn&apos;t reachable, so projects can&apos;t be
             created or listed. Running locally? Start the API with{" "}
             <code style={{ fontStyle: "normal" }}>uvicorn app.main:app --port 8000</code>.
-            Viewing the hosted demo? The API must be deployed and connected —
+            Viewing the hosted demo? The API must be deployed and connected;
             see the README&apos;s Deployment section.
           </div>
         )}
@@ -97,11 +97,11 @@ export default function HomePage() {
       </section>
 
       <section className="home-content" style={{ paddingBottom: 96 }}>
-        <p className="overline ruled">The Cutting Room — in pictures</p>
+        <p className="overline ruled">The Cutting Room, in pictures</p>
 
         <div className="gallery">
           <figure className="shot shot-main" style={{ margin: 0 }}>
-            <span className="vertical-label">Atelier — the cutting room</span>
+            <span className="vertical-label">Atelier, the cutting room</span>
             <img
               src="/shots/editor.jpg"
               alt="The editor: media archive, cinema preview with a burned-in caption, agent correspondence panel and the timeline"
@@ -109,7 +109,7 @@ export default function HomePage() {
               height={1000}
             />
             <figcaption>
-              <span>Fig. 01 — The cutting room, mid-session</span>
+              <span>Fig. 01: The cutting room, mid-session</span>
             </figcaption>
           </figure>
 
@@ -122,7 +122,7 @@ export default function HomePage() {
                 height={860}
               />
               <figcaption>
-                <span>Fig. 02 — Directing by correspondence</span>
+                <span>Fig. 02: Directing by correspondence</span>
               </figcaption>
             </figure>
             <figure className="shot" style={{ margin: 0 }}>
@@ -133,7 +133,7 @@ export default function HomePage() {
                 height={420}
               />
               <figcaption>
-                <span>Fig. 03 — The cut, clip by clip</span>
+                <span>Fig. 03: The cut, clip by clip</span>
               </figcaption>
             </figure>
           </div>
@@ -142,7 +142,7 @@ export default function HomePage() {
 
       <section className="home-content">
         <p className="overline ruled" style={{ marginBottom: 8 }}>
-          The Collection — {projects.length} project{projects.length === 1 ? "" : "s"}
+          The Collection: {projects.length} project{projects.length === 1 ? "" : "s"}
         </p>
 
         <div>
@@ -162,7 +162,7 @@ export default function HomePage() {
           ))}
           {projects.length === 0 && !backendDown && (
             <p className="muted serif" style={{ fontStyle: "italic", fontSize: 18 }}>
-              Nothing here yet — every collection begins with a single piece.
+              Nothing here yet. Every collection begins with a single piece.
             </p>
           )}
           {projects.length === 0 && backendDown && (

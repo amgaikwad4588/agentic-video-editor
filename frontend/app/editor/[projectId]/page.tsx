@@ -78,7 +78,7 @@ export default function EditorPage({
         <span className="overline">In the cutting room</span>
         <div style={{ flex: 1 }} />
         {error && (
-          <span className="muted" style={{ fontStyle: "italic", fontSize: 13 }}>
+          <span className="muted" style={{ fontStyle: "italic", fontSize: 14 }}>
             {error}
           </span>
         )}

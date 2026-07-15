@@ -18,7 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Atelier — Agentic Video Editor",
+  title: "Atelier: Agentic Video Editor",
   description: "Edit video with natural language",
 };
 

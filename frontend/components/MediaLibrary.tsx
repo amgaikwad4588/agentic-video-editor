@@ -54,7 +54,7 @@ export default function MediaLibrary({
       </div>
 
       {error && (
-        <p className="muted" style={{ fontStyle: "italic", fontSize: 12 }}>{error}</p>
+        <p className="muted" style={{ fontStyle: "italic", fontSize: 14 }}>{error}</p>
       )}
 
       <div style={{ marginTop: 10 }}>
@@ -70,8 +70,8 @@ export default function MediaLibrary({
             )}
             <div className="name">
               <div>{a.filename}</div>
-              <div className="muted" style={{ fontSize: 11 }}>
-                {a.duration != null ? formatTime(a.duration) : "—"}
+              <div className="muted" style={{ fontSize: 12 }}>
+                {a.duration != null ? formatTime(a.duration) : "still"}
               </div>
             </div>
             <button title="Add to timeline" onClick={() => onAddToTimeline(a.id)}>+</button>
