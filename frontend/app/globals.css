@@ -69,10 +69,10 @@ html, body {
 }
 /* Keep the decorative gridlines near the content column; lines drawn out in
    the empty margins of a wide screen make the page feel scattered. */
-.gridlines span:nth-child(1) { left: max(4%, calc(50% - 620px)); }
+.gridlines span:nth-child(1) { left: max(4%, calc(50% - 680px)); }
 .gridlines span:nth-child(2) { left: 50%; }
-.gridlines span:nth-child(3) { left: min(75%, calc(50% + 320px)); }
-.gridlines span:nth-child(4) { right: max(4%, calc(50% - 620px)); }
+.gridlines span:nth-child(3) { left: min(75%, calc(50% + 340px)); }
+.gridlines span:nth-child(4) { right: max(4%, calc(50% - 680px)); }
 @media (min-width: 1024px) {
   .gridlines { display: block; }
 }
@@ -424,28 +424,34 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---- home page ------------------------------------------------------------------ */
 
-/* The landing column is deliberately narrower than the editor (1600px):
-   left-aligned editorial copy in a huge container strands everything in the
-   left third of a wide screen and leaves a dead field on the right. */
+/* Landing layout: the hero copy alone is only ~600px wide, so on desktop it
+   shares the row with the main editor screenshot; nothing is left empty. */
 .home-hero {
   position: relative;
   z-index: 1;
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 72px 32px 48px;
+  padding: 64px 32px 48px;
+  display: grid;
+  gap: 48px;
 }
 @media (min-width: 1024px) {
-  .home-hero { padding: 96px 48px 64px; }
+  .home-hero {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: center;
+    column-gap: 64px;
+    padding: 80px 48px 64px;
+  }
 }
 .home-hero h1 {
-  font-size: clamp(3rem, 8vw, 6.5rem);
+  font-size: clamp(2.75rem, 5.5vw, 5.5rem);
   line-height: 0.95;
   max-width: 12ch;
 }
 .home-content {
   position: relative;
   z-index: 1;
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 0 32px 88px;
 }
@@ -455,33 +461,24 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---- landing gallery: real editor screenshots, editorial treatment -------- */
 
-.gallery {
+.hero-shot { position: relative; }
+
+.gallery-duo {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
   gap: 24px;
   margin-top: 32px;
-  align-items: start;
 }
-.shot-main { grid-column: 1 / 9; position: relative; }
-.shot-side {
-  grid-column: 9 / 13;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  /* deliberate asymmetry: the side rail sits lower than the hero shot */
-  margin-top: 56px;
+@media (min-width: 768px) {
+  .gallery-duo { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 1023px) {
-  .shot-main, .shot-side { grid-column: 1 / 13; margin-top: 0; }
-}
-
-.shot { display: block; }
-/* editorial portrait crop for the tall side captures */
-.shot-side .shot:first-child img {
-  aspect-ratio: 4 / 5;
+/* uniform landscape crop so the pair sits level regardless of source shape */
+.gallery-duo .shot img {
+  aspect-ratio: 3 / 2;
   object-fit: cover;
   object-position: top;
 }
+
+.shot { display: block; }
 .shot img {
   width: 100%;
   height: auto;

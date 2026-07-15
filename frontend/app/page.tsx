@@ -51,92 +51,92 @@ export default function HomePage() {
   return (
     <main>
       <section className="home-hero">
-        <p className="overline ruled">Atelier, Vol. 01</p>
-        <h1 style={{ marginTop: 28 }}>
-          Cut with <em className="italic-accent">intention</em>.
-        </h1>
-        <p
-          className="muted"
-          style={{ maxWidth: "44ch", marginTop: 32, fontSize: 16 }}
-        >
-          A video editor directed by language. Upload your footage, arrange the
-          timeline by hand, or simply describe the film you want and let the
-          agent compose it.
-        </p>
+        <div className="hero-copy">
+          <p className="overline ruled">Atelier, Vol. 01</p>
+          <h1 style={{ marginTop: 28 }}>
+            Cut with <em className="italic-accent">intention</em>.
+          </h1>
+          <p
+            className="muted"
+            style={{ maxWidth: "44ch", marginTop: 32, fontSize: 16 }}
+          >
+            A video editor directed by language. Upload your footage, arrange the
+            timeline by hand, or simply describe the film you want and let the
+            agent compose it.
+          </p>
 
-        <div style={{ display: "flex", gap: 20, marginTop: 48, maxWidth: 520 }}>
-          <input
-            style={{ flex: 1 }}
-            placeholder="Name a new project…"
-            aria-label="New project name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && create()}
-          />
-          <button className="primary" onClick={create} disabled={creating}>
-            {creating ? "Opening…" : "Begin"}
-          </button>
+          <div style={{ display: "flex", gap: 20, marginTop: 40, maxWidth: 520 }}>
+            <input
+              style={{ flex: 1 }}
+              placeholder="Name a new project…"
+              aria-label="New project name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && create()}
+            />
+            <button className="primary" onClick={create} disabled={creating}>
+              {creating ? "Opening…" : "Begin"}
+            </button>
+          </div>
+
+          {backendDown && (
+            <div className="notice" role="alert">
+              <span className="overline">The studio is dark</span>
+              The editing backend isn&apos;t reachable, so projects can&apos;t be
+              created or listed. Running locally? Start the API with{" "}
+              <code style={{ fontStyle: "normal" }}>uvicorn app.main:app --port 8000</code>.
+              Viewing the hosted demo? The API must be deployed and connected;
+              see the README&apos;s Deployment section.
+            </div>
+          )}
+          {error && (
+            <div className="notice" role="alert">
+              <span className="overline">A note from the desk</span>
+              {error}
+            </div>
+          )}
         </div>
 
-        {backendDown && (
-          <div className="notice" role="alert">
-            <span className="overline">The studio is dark</span>
-            The editing backend isn&apos;t reachable, so projects can&apos;t be
-            created or listed. Running locally? Start the API with{" "}
-            <code style={{ fontStyle: "normal" }}>uvicorn app.main:app --port 8000</code>.
-            Viewing the hosted demo? The API must be deployed and connected;
-            see the README&apos;s Deployment section.
-          </div>
-        )}
-        {error && (
-          <div className="notice" role="alert">
-            <span className="overline">A note from the desk</span>
-            {error}
-          </div>
-        )}
+        <figure className="shot hero-shot" style={{ margin: 0 }}>
+          <span className="vertical-label">Atelier, the cutting room</span>
+          <img
+            src="/shots/editor.jpg"
+            alt="The editor: media archive, cinema preview with a burned-in caption, agent correspondence panel and the timeline"
+            width={1600}
+            height={1000}
+          />
+          <figcaption>
+            <span>Fig. 01: The cutting room, mid-session</span>
+          </figcaption>
+        </figure>
       </section>
 
       <section className="home-content" style={{ paddingBottom: 96 }}>
         <p className="overline ruled">The Cutting Room, in pictures</p>
 
-        <div className="gallery">
-          <figure className="shot shot-main" style={{ margin: 0 }}>
-            <span className="vertical-label">Atelier, the cutting room</span>
+        <div className="gallery-duo">
+          <figure className="shot" style={{ margin: 0 }}>
             <img
-              src="/shots/editor.jpg"
-              alt="The editor: media archive, cinema preview with a burned-in caption, agent correspondence panel and the timeline"
-              width={1600}
-              height={1000}
+              src="/shots/chat.jpg"
+              alt="The correspondence panel where you direct the agent in plain language"
+              width={640}
+              height={860}
             />
             <figcaption>
-              <span>Fig. 01: The cutting room, mid-session</span>
+              <span>Fig. 02: Directing by correspondence</span>
             </figcaption>
           </figure>
-
-          <div className="shot-side">
-            <figure className="shot" style={{ margin: 0 }}>
-              <img
-                src="/shots/chat.jpg"
-                alt="The correspondence panel where you direct the agent in plain language"
-                width={640}
-                height={860}
-              />
-              <figcaption>
-                <span>Fig. 02: Directing by correspondence</span>
-              </figcaption>
-            </figure>
-            <figure className="shot" style={{ margin: 0 }}>
-              <img
-                src="/shots/timeline.jpg"
-                alt="The timeline: draggable clips with trim, speed and volume controls"
-                width={1200}
-                height={420}
-              />
-              <figcaption>
-                <span>Fig. 03: The cut, clip by clip</span>
-              </figcaption>
-            </figure>
-          </div>
+          <figure className="shot" style={{ margin: 0 }}>
+            <img
+              src="/shots/timeline.jpg"
+              alt="The timeline: draggable clips with trim, speed and volume controls"
+              width={1200}
+              height={420}
+            />
+            <figcaption>
+              <span>Fig. 03: The cut, clip by clip</span>
+            </figcaption>
+          </figure>
         </div>
       </section>
 
