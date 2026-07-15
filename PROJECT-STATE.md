@@ -1,6 +1,22 @@
 # Project State — Checkpoint
 
-_Last updated: 2026-07-15 (fully deployed and connected)._
+_Last updated: 2026-07-15 (agent smartness + UI readability stage, pushed)._
+
+## Latest stage (2026-07-15) — done, tested, pushed
+
+- **Agent asks instead of guessing**: new `ask_user` tool; on ambiguity the
+  agent returns a question + 2-4 options, rendered as clickable buttons in
+  ChatPanel. `AgentResponse.options`, `AgentRequest.history` (ChatTurn list,
+  last 20 turns sent by the frontend) so answers keep context.
+- **Accuracy**: assets + timeline snapshot injected with every message
+  (`_project_state` in engine.py); stricter system prompt (real durations,
+  verify multi-step edits, no unrequested edits, no em dashes in replies).
+  Same behaviour in both engines (Anthropic + Gemini).
+- **UI**: five-step type scale (`--text-xs..xl`) in globals.css; body 16px,
+  12px floor everywhere (was 10-11px); darker muted grey; option-button
+  styling; all em dashes removed from visible frontend copy.
+- **Tests**: backend 42/42, frontend 15/15, `next build` exit 0.
+- Commits: `agent: clarifying questions...` and `ui: readable type scale...`.
 
 **Live:** frontend https://agentic-video-editor-zeta.vercel.app (Vercel) ·
 backend https://agentic-video-editor-api.onrender.com (Render, free tier,
