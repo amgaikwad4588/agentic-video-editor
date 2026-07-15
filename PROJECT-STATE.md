@@ -1,6 +1,12 @@
 # Project State — Checkpoint
 
-_Last updated: 2026-07-14 (resumed; theme work completed and verified)._
+_Last updated: 2026-07-15 (fully deployed and connected)._
+
+**Live:** frontend https://agentic-video-editor-zeta.vercel.app (Vercel) ·
+backend https://agentic-video-editor-api.onrender.com (Render, free tier,
+`GEMINI_API_KEY` set). Verified end-to-end through the live site (project
+creation round-trips through Render). Agent supports Gemini and Claude,
+auto-selected by API key.
 
 This file is the single source of truth for resuming work. It records what is
 **done and verified**, what is **in flight**, one **open bug** with its

@@ -1,5 +1,7 @@
 # Agentic Video Editor
 
+**Live demo: https://agentic-video-editor-zeta.vercel.app** · API: https://agentic-video-editor-api.onrender.com/docs
+
 A web-based video editor you can drive with natural language. Upload media,
 arrange clips on a timeline, preview in the browser — or just tell the agent
 *“cut the first 10 seconds, add a title and export”* and it does the edits
@@ -40,17 +42,19 @@ The agent chat works with **either** `ANTHROPIC_API_KEY` (Claude) or
 `GEMINI_API_KEY` (Google Gemini — has a free tier); set one in `.env`.
 Without a key everything else still works and the chat returns a clear 503.
 
-## Deployment
+## Deployment (both live)
 
-- **Frontend (live):** https://agentic-video-editor-zeta.vercel.app — deployed
-  on Vercel from `frontend/`.
-- **Backend:** deploy with the one-click [Render Blueprint](render.yaml):
-  Render dashboard → New → Blueprint → select this repo → Apply (set
-  `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` when prompted). The API can't run
-  on Vercel because renders are long-lived background jobs with files on disk.
-- **Connect the two:** once the Render service is live, set `BACKEND_URL` to
-  its URL in the Vercel project settings (Production env) and redeploy the
-  frontend; the `/api/*` rewrite then proxies to it.
+- **Frontend:** https://agentic-video-editor-zeta.vercel.app — Vercel, from
+  `frontend/`; `BACKEND_URL` (Production env) points the `/api/*` rewrite at
+  the Render API.
+- **Backend:** https://agentic-video-editor-api.onrender.com — Render Docker
+  service from the [Blueprint](render.yaml) (`GEMINI_API_KEY` or
+  `ANTHROPIC_API_KEY` powers the agent chat). The API can't run on Vercel
+  because renders are long-lived background jobs with files on disk.
+- **Free-tier caveats:** the Render instance sleeps after ~15 idle minutes
+  (first request takes ~30–50s to wake) and its disk is ephemeral — uploads,
+  renders and projects reset on restart. The `starter` plan plus the disk
+  block commented in `render.yaml` makes storage persistent.
 
 ## Quick start (Docker)
 
