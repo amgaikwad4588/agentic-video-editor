@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import ThemeToggle from "@/components/ThemeToggle";
@@ -8,6 +9,7 @@ import { api } from "@/lib/api";
 import type { Project } from "@/lib/types";
 
 export default function HomePage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +34,10 @@ export default function HomePage() {
     setError(null);
     try {
       const project = await api.createProject(name.trim());
-      setName("");
-      setProjects((p) => [project, ...p]);
       setBackendDown(false);
+      // Straight into the cutting room; no reason to stay on the landing page.
+      router.push(`/editor/${project.id}`);
+      return;
     } catch (e) {
       const msg = (e as Error).message;
       // A failed fetch (or proxy 502/404) means the API isn't reachable;

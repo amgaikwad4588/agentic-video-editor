@@ -74,7 +74,13 @@ export default function ChatPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      <span className="overline" style={{ marginBottom: 12 }}>Correspondence</span>
+      <div style={{ marginBottom: 12 }}>
+        <span className="overline">Correspondence</span>
+        <div className="chat-status">
+          <span className="dot" aria-hidden="true" />
+          <span>{busy ? "The AI editor is working" : "Your AI editor, ready for direction"}</span>
+        </div>
+      </div>
 
       <div className="chat-messages">
         {messages.length === 0 && (
@@ -91,6 +97,9 @@ export default function ChatPanel({
         )}
         {messages.map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
+            <span className="msg-role">
+              {m.role === "user" ? "You" : m.role === "agent" ? "AI editor" : "Notice"}
+            </span>
             {m.text}
             {m.actions && m.actions.length > 0 && (
               <div className="actions">
@@ -110,15 +119,20 @@ export default function ChatPanel({
             )}
           </div>
         ))}
-        {busy && <div className="msg agent muted">Working&hellip;</div>}
+        {busy && (
+          <div className="msg agent muted">
+            <span className="msg-role">AI editor</span>
+            Working&hellip;
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+      <div className="composer">
         <textarea
           rows={2}
-          style={{ flex: 1, resize: "none" }}
-          placeholder="e.g. cut the first 10 seconds and add a title"
+          style={{ flex: 1, resize: "none", border: "none", padding: "6px 4px" }}
+          placeholder="Ask the AI editor, e.g. cut the first 10 seconds"
           value={input}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}

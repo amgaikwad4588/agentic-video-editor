@@ -191,7 +191,7 @@ export default function PreviewPlayerInner({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button className="primary" onClick={() => setPlaying((p) => !p)} disabled={!pos}>
+        <button className="transport" onClick={() => setPlaying((p) => !p)} disabled={!pos}>
           {playing ? "⏸ Pause" : "▶ Play"}
         </button>
         <input
