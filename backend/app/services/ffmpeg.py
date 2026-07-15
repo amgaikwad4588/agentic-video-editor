@@ -189,6 +189,30 @@ def _clip_duration(clip: Clip, source_duration: float | None) -> float:
     return max(0.0, (end - clip.start) / clip.speed)
 
 
+# Colour treatments selectable per clip (Clip.filter). Grayscale drops
+# saturation; sepia is the standard luma-weighted colour mix.
+_CLIP_FILTERS = {
+    "grayscale": "hue=s=0",
+    "sepia": (
+        "colorchannelmixer="
+        ".393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0"
+    ),
+}
+
+
+def _fade_filters(clip: Clip, out_dur: float, audio: bool) -> str:
+    """fade/afade steps for a clip, positioned in output (post-speed) time.
+    Returns '' or a leading-comma filter fragment."""
+    name = "afade" if audio else "fade"
+    steps = []
+    if clip.fade_in > 0:
+        steps.append(f"{name}=t=in:st=0:d={min(clip.fade_in, out_dur):.4f}")
+    if clip.fade_out > 0:
+        d = min(clip.fade_out, out_dur)
+        steps.append(f"{name}=t=out:st={max(0.0, out_dur - d):.4f}:d={d:.4f}")
+    return ("," + ",".join(steps)) if steps else ""
+
+
 def build_export_command(
     timeline: Timeline,
     asset_paths: dict[str, str],
@@ -239,6 +263,9 @@ def build_export_command(
             f"pad={OUT_W}:{OUT_H}:(ow-iw)/2:(oh-ih)/2,"
             f"format=yuv420p"
         )
+        if clip.filter in _CLIP_FILTERS:
+            v += "," + _CLIP_FILTERS[clip.filter]
+        v += _fade_filters(clip, out_dur, audio=False)
         for ov in clip.overlays:
             ov_end = ov.end if ov.end is not None else out_dur
             # fontfile is deliberately NOT quoted (paths have no spaces; the
@@ -260,7 +287,8 @@ def build_export_command(
             a = (
                 f"[{i}:a]atrim=start={clip.start}:end={end},"
                 f"asetpts=PTS-STARTPTS,{_atempo_chain(clip.speed)},"
-                f"volume={clip.volume},"
+                f"volume={clip.volume}"
+                f"{_fade_filters(clip, out_dur, audio=True)},"
                 f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo[a{i}]"
             )
         else:

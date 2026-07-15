@@ -39,6 +39,9 @@ class TextOverlay(BaseModel):
     end: float | None = None  # None = until clip end
 
 
+CLIP_FILTERS = ("none", "grayscale", "sepia")
+
+
 class Clip(BaseModel):
     """One segment on the timeline referencing a source asset."""
     id: str = PField(default_factory=_id)
@@ -48,6 +51,11 @@ class Clip(BaseModel):
     end: float | None = None
     speed: float = PField(default=1.0, gt=0.09, lt=10.1)
     volume: float = PField(default=1.0, ge=0.0, le=5.0)
+    # Fade durations in output seconds (0 = no fade); applied to video+audio.
+    fade_in: float = PField(default=0.0, ge=0.0, le=30.0)
+    fade_out: float = PField(default=0.0, ge=0.0, le=30.0)
+    # Colour treatment burned in at export and mirrored in the preview.
+    filter: str = PField(default="none", pattern=f"^({'|'.join(CLIP_FILTERS)})$")
     overlays: list[TextOverlay] = PField(default_factory=list)
 
 

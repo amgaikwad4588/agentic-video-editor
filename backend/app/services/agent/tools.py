@@ -7,9 +7,10 @@ of hallucinating success. All schemas use strict mode (additionalProperties
 false + required) so tool inputs are guaranteed to validate.
 """
 
+import uuid
 from typing import Any
 
-from ...models import Clip, MediaAsset, TextOverlay, Timeline
+from ...models import CLIP_FILTERS, Clip, MediaAsset, TextOverlay, Timeline
 
 # --------------------------------------------------------------------------
 # Tool schemas (Anthropic tool-use format, strict)
@@ -110,6 +111,53 @@ TOOLS: list[dict] = [
         ),
     },
     {
+        "name": "split_clip",
+        "description": (
+            "Split a clip into two at a point. `at` is seconds into the clip's "
+            "source segment (relative to its in-point). Use this before "
+            "removing or reordering part of a clip, e.g. 'cut out the middle'."
+        ),
+        "strict": True,
+        "input_schema": _schema(
+            {
+                "clip_id": {"type": "string"},
+                "at": {"type": "number", "description": "Seconds after the clip's in-point"},
+            },
+            ["clip_id", "at"],
+        ),
+    },
+    {
+        "name": "set_fade",
+        "description": (
+            "Set fade-in/fade-out durations (seconds) on a clip; applies to "
+            "both picture and sound. 0 removes a fade."
+        ),
+        "strict": True,
+        "input_schema": _schema(
+            {
+                "clip_id": {"type": "string"},
+                "fade_in": {"type": "number", "description": "Seconds, 0-30"},
+                "fade_out": {"type": "number", "description": "Seconds, 0-30"},
+            },
+            ["clip_id", "fade_in", "fade_out"],
+        ),
+    },
+    {
+        "name": "apply_filter",
+        "description": (
+            "Apply a colour treatment to a clip: 'grayscale' (black and "
+            "white), 'sepia', or 'none' to remove it."
+        ),
+        "strict": True,
+        "input_schema": _schema(
+            {
+                "clip_id": {"type": "string"},
+                "filter": {"type": "string", "enum": list(CLIP_FILTERS)},
+            },
+            ["clip_id", "filter"],
+        ),
+    },
+    {
         "name": "add_text_overlay",
         "description": (
             "Burn a text caption into a clip. `start`/`end` are seconds relative "
@@ -206,9 +254,14 @@ class ToolExecutor:
             asset = self.assets.get(c.asset_id)
             name = asset.filename if asset else c.asset_id
             end = f"{c.end:.2f}s" if c.end is not None else "asset-end"
+            extras = ""
+            if c.fade_in or c.fade_out:
+                extras += f" fade_in={c.fade_in}s fade_out={c.fade_out}s"
+            if c.filter != "none":
+                extras += f" filter={c.filter}"
             lines.append(
                 f"{i}: clip_id={c.id} source='{name}' in={c.start:.2f}s out={end} "
-                f"speed={c.speed}x volume={c.volume} overlays={len(c.overlays)}"
+                f"speed={c.speed}x volume={c.volume} overlays={len(c.overlays)}{extras}"
             )
         return "\n".join(lines)
 
@@ -289,6 +342,68 @@ class ToolExecutor:
         self._clip(clip_id).volume = volume
         self.mutated = True
         return f"Clip {clip_id} volume set to {volume}."
+
+    def _tool_split_clip(self, clip_id: str, at: float) -> str:
+        clip = self._clip(clip_id)
+        asset = self.assets.get(clip.asset_id)
+        end = clip.end if clip.end is not None else (
+            asset.duration if asset and asset.duration is not None else None
+        )
+        if end is None:
+            raise ValueError(
+                "Cannot split: the clip's end is open and the source duration "
+                "is unknown. Call trim_clip with an explicit end first."
+            )
+        if not 0 < at < (end - clip.start):
+            raise ValueError(
+                f"at must be within the clip: 0 < at < {end - clip.start:.2f}"
+            )
+        cut = clip.start + at
+        second = clip.model_copy(deep=True)
+        second.id = uuid.uuid4().hex
+        second.start, second.end = cut, end
+        clip.end = cut
+        # Overlays are clip-relative in output time; hand each to the side it
+        # starts on, shifting the second clip's back by the cut offset.
+        boundary = at / clip.speed
+        first_ov, second_ov = [], []
+        for ov in clip.overlays:
+            if ov.start < boundary:
+                if ov.end is not None:
+                    ov.end = min(ov.end, boundary)
+                first_ov.append(ov)
+            else:
+                ov.start -= boundary
+                if ov.end is not None:
+                    ov.end -= boundary
+                second_ov.append(ov)
+        clip.overlays, second.overlays = first_ov, second_ov
+        # A fade across the cut would double up; keep in on the first half,
+        # out on the second.
+        clip.fade_out = 0.0
+        second.fade_in = 0.0
+        idx = self.timeline.clips.index(clip)
+        self.timeline.clips.insert(idx + 1, second)
+        self.mutated = True
+        return (
+            f"Split clip {clip_id} at {at:.2f}s into {clip.id} and {second.id}.\n"
+            f"{self._describe_timeline()}"
+        )
+
+    def _tool_set_fade(self, clip_id: str, fade_in: float, fade_out: float) -> str:
+        if not (0.0 <= fade_in <= 30.0 and 0.0 <= fade_out <= 30.0):
+            raise ValueError("fades must be between 0 and 30 seconds")
+        clip = self._clip(clip_id)
+        clip.fade_in, clip.fade_out = fade_in, fade_out
+        self.mutated = True
+        return f"Clip {clip_id} fades set: in {fade_in}s, out {fade_out}s."
+
+    def _tool_apply_filter(self, clip_id: str, filter: str) -> str:
+        if filter not in CLIP_FILTERS:
+            raise ValueError(f"filter must be one of {CLIP_FILTERS}")
+        self._clip(clip_id).filter = filter
+        self.mutated = True
+        return f"Clip {clip_id} filter set to {filter}."
 
     def _tool_add_text_overlay(self, clip_id: str, text: str, start: float,
                                end: float | None, font_size: int, color: str,

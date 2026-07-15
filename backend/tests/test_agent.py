@@ -84,6 +84,44 @@ def test_overlay_vertical_positions():
     assert tl.clips[0].overlays[0].y == "40"
 
 
+def test_split_clip_divides_and_distributes_overlays():
+    from app.models import TextOverlay
+    clip = Clip(id="c1", asset_id="a1", start=0.0, end=10.0, overlays=[
+        TextOverlay(text="early", start=1.0, end=3.0),
+        TextOverlay(text="late", start=6.0, end=None),
+    ])
+    ex = ToolExecutor(Timeline(clips=[clip]), make_assets())
+    ex.execute("split_clip", {"clip_id": "c1", "at": 4.0})
+
+    first, second = ex.timeline.clips
+    assert (first.start, first.end) == (0.0, 4.0)
+    assert (second.start, second.end) == (4.0, 10.0)
+    assert first.id == "c1" and second.id != "c1"
+    assert [o.text for o in first.overlays] == ["early"]
+    assert [o.text for o in second.overlays] == ["late"]
+    assert second.overlays[0].start == 2.0  # shifted back by the cut offset
+
+
+def test_split_clip_validates_bounds():
+    ex = ToolExecutor(Timeline(clips=[Clip(id="c1", asset_id="a1", end=10.0)]), make_assets())
+    with pytest.raises(ValueError, match="within the clip"):
+        ex.execute("split_clip", {"clip_id": "c1", "at": 10.0})
+
+
+def test_set_fade_and_apply_filter():
+    tl = Timeline(clips=[Clip(id="c1", asset_id="a1")])
+    ex = ToolExecutor(tl, make_assets())
+    ex.execute("set_fade", {"clip_id": "c1", "fade_in": 1.0, "fade_out": 2.0})
+    assert (tl.clips[0].fade_in, tl.clips[0].fade_out) == (1.0, 2.0)
+    ex.execute("apply_filter", {"clip_id": "c1", "filter": "grayscale"})
+    assert tl.clips[0].filter == "grayscale"
+    with pytest.raises(ValueError):
+        ex.execute("set_fade", {"clip_id": "c1", "fade_in": -1, "fade_out": 0})
+    # fades and filter surface in the timeline description for the model
+    assert "fade_in=1.0s" in ex.execute("get_timeline", {})
+    assert "filter=grayscale" in ex.execute("get_timeline", {})
+
+
 def test_ask_user_sets_pending_question():
     ex = ToolExecutor(Timeline(), make_assets())
     ex.execute("ask_user", {"question": "Which video?", "options": ["beach.mp4", "city.mp4"]})

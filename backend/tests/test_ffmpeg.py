@@ -69,6 +69,32 @@ def test_build_export_command_unknown_asset_fails():
         ff.build_export_command(tl, {}, {}, "out.mp4")
 
 
+def test_build_export_command_includes_fades_and_filter(sample_clip):
+    info = ff.probe(sample_clip)
+    tl = Timeline(clips=[
+        Clip(asset_id="a", start=0.0, end=2.0, fade_in=0.5, fade_out=0.5,
+             filter="grayscale"),
+    ])
+    argv, _ = ff.build_export_command(tl, {"a": str(sample_clip)}, {"a": info}, "out.mp4")
+    graph = argv[argv.index("-filter_complex") + 1]
+    assert "hue=s=0" in graph
+    assert "fade=t=in:st=0:d=0.5000" in graph
+    assert "fade=t=out:st=1.5000:d=0.5000" in graph
+    assert "afade=t=in" in graph and "afade=t=out" in graph
+
+
+def test_export_clip_with_fade_and_filter_renders(sample_clip, tmp_path):
+    info = ff.probe(sample_clip)
+    tl = Timeline(clips=[
+        Clip(asset_id="a", start=0.0, end=1.5, fade_in=0.3, fade_out=0.3,
+             filter="sepia"),
+    ])
+    out = tmp_path / "faded.mp4"
+    ff.export_timeline(tl, {"a": str(sample_clip)}, {"a": info}, out)
+    assert out.stat().st_size > 0
+    assert ff.probe(out).duration == pytest.approx(1.5, abs=0.35)
+
+
 def test_export_two_clips_with_overlay_and_silent_source(
     sample_clip, silent_clip, tmp_path
 ):
