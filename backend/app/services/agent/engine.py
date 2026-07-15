@@ -24,16 +24,66 @@ SYSTEM_PROMPT = """\
 You are the editing engine of a video editor. You turn the user's natural \
 language requests into precise editing operations via the provided tools.
 
-Rules:
-- Inspect before you edit: call get_timeline / list_assets when the user \
-refers to clips or files, so you use real ids - never invent ids.
-- Times are seconds. "First 10 seconds" of a clip means start=0, end=10.
-- If the request is ambiguous (e.g. multiple assets match a name), pick the \
-most reasonable interpretation and state your assumption in the final reply.
-- Only call export_video when the user explicitly asks to export/render/save.
-- After finishing, reply with one short paragraph summarising what changed. \
-No markdown headers, no tool ids - plain language for a non-technical user.
+Accuracy rules:
+- Every request comes with the current project state (assets and timeline). \
+Use those exact asset/clip ids - never invent ids. If you have already made \
+edits this turn, call get_timeline before further edits so ids and positions \
+are current.
+- Times are seconds. "First 10 seconds" of a clip means start=0, end=10. \
+"Last 5 seconds" of a 30s clip means start=25, end=30 - compute from the \
+real duration, do not guess.
+- Do exactly what was asked: no extra edits, no unrequested clips, overlays \
+or exports. Only call export_video when the user explicitly asks to \
+export/render/save.
+- After a multi-step edit, call get_timeline once to verify the result \
+matches the request before replying.
+
+When you are not sure:
+- If the request is ambiguous and the choice matters (several assets or \
+clips could match, the target clip is unclear, or a key value like duration, \
+text or position is missing), call ask_user with 2-4 short, concrete \
+options. Do not guess and do not call other tools in the same turn.
+- If one interpretation is clearly the obvious one, act on it and state the \
+assumption in your reply.
+
+Reply style:
+- One short paragraph summarising what changed. No markdown headers, no \
+tool ids - plain language for a non-technical user.
+- Use plain punctuation: commas, periods and colons. Never use em dashes.
 """
+
+
+def _project_state(executor: ToolExecutor) -> str:
+    """Authoritative snapshot injected with the user message: the model gets
+    real ids up front instead of spending iterations on discovery calls."""
+    return (
+        "<project_state>\n"
+        "ASSETS:\n" + executor.execute("list_assets", {}) + "\n\n"
+        "TIMELINE:\n" + executor.execute("get_timeline", {}) + "\n"
+        "</project_state>"
+    )
+
+
+def build_messages(message: str, history: list, state: str) -> list[dict[str, Any]]:
+    """History turns as alternating messages; the fresh project state rides
+    with the newest user message (older snapshots would be stale)."""
+    messages: list[dict[str, Any]] = []
+    for turn in history:
+        role = "user" if turn.role == "user" else "assistant"
+        if messages and messages[-1]["role"] == role:
+            # The API requires alternating roles; merge consecutive same-role
+            # turns (happens when an error message was dropped client-side).
+            messages[-1]["content"] += "\n\n" + turn.text
+        else:
+            messages.append({"role": role, "content": turn.text})
+    content = f"{state}\n\n{message}"
+    if messages and messages[-1]["role"] == "user":
+        messages[-1]["content"] += "\n\n" + content
+    else:
+        messages.append({"role": "user", "content": content})
+    if messages[0]["role"] != "user":
+        messages.insert(0, {"role": "user", "content": "(conversation resumes)"})
+    return messages
 
 
 class AgentError(RuntimeError):
@@ -60,11 +110,12 @@ class AgentEngine:
         message: str,
         timeline: Timeline,
         assets: list[MediaAsset],
+        history: list | None = None,
     ) -> tuple[str, list[AgentAction], ToolExecutor]:
         """Run one agent turn. Returns (reply_text, actions, executor)."""
         executor = ToolExecutor(timeline, assets)
         actions: list[AgentAction] = []
-        messages: list[dict[str, Any]] = [{"role": "user", "content": message}]
+        messages = build_messages(message, history or [], _project_state(executor))
 
         response = None
         for _ in range(self.max_iterations):
@@ -106,6 +157,10 @@ class AgentEngine:
                 })
             # All parallel tool results must go back in a single user message.
             messages.append({"role": "user", "content": results})
+            if executor.pending_question:
+                # The agent asked the user to choose; end the turn here and
+                # surface the question + options instead of looping on.
+                break
         else:
             raise AgentError(
                 f"Agent did not finish within {self.max_iterations} tool iterations"
@@ -114,7 +169,10 @@ class AgentEngine:
         if response is None:  # pragma: no cover - loop always runs once
             raise AgentError("No response from model")
 
-        reply = next(
-            (b.text for b in response.content if b.type == "text"), ""
-        ).strip() or "Done."
+        if executor.pending_question:
+            reply = executor.pending_question["question"]
+        else:
+            reply = next(
+                (b.text for b in response.content if b.type == "text"), ""
+            ).strip() or "Done."
         return reply, actions, executor

@@ -2,7 +2,7 @@
 // (proxied to FastAPI by next.config.ts rewrites).
 
 import type {
-  AgentResponse, Clip, Job, MediaAsset, Project,
+  AgentResponse, ChatTurn, Clip, Job, MediaAsset, Project,
 } from "./types";
 
 class ApiError extends Error {
@@ -59,8 +59,8 @@ export const api = {
   downloadUrl: (jobId: string) => `/api/jobs/${jobId}/download`,
 
   // agent
-  sendAgentMessage: (projectId: string, message: string) =>
-    request<AgentResponse>(`/api/projects/${projectId}/agent`, json("POST", { message })),
+  sendAgentMessage: (projectId: string, message: string, history: ChatTurn[] = []) =>
+    request<AgentResponse>(`/api/projects/${projectId}/agent`, json("POST", { message, history })),
 };
 
 export { ApiError };

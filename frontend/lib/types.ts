@@ -63,8 +63,16 @@ export interface AgentAction {
   result: string;
 }
 
+export interface ChatTurn {
+  role: "user" | "agent";
+  text: string;
+}
+
 export interface AgentResponse {
   reply: string;
   actions: AgentAction[];
   timeline: Timeline;
+  // Non-empty when the agent asks a clarifying question; rendered as
+  // clickable choices in the chat panel.
+  options: string[];
 }

@@ -142,6 +142,32 @@ TOOLS: list[dict] = [
         "strict": True,
         "input_schema": _schema({}, []),
     },
+    {
+        "name": "ask_user",
+        "description": (
+            "Ask the user a clarifying question when the request is ambiguous "
+            "and guessing could produce the wrong edit (e.g. several assets or "
+            "clips could match, or a value like duration/position is unclear). "
+            "Give 2-4 short, concrete options for the user to pick from. This "
+            "ends the turn; the user's choice arrives as the next message. Do "
+            "not call any other tool alongside this one."
+        ),
+        "strict": True,
+        "input_schema": _schema(
+            {
+                "question": {
+                    "type": "string",
+                    "description": "The clarifying question shown to the user",
+                },
+                "options": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "2-4 short, concrete choices the user can click",
+                },
+            },
+            ["question", "options"],
+        ),
+    },
 ]
 
 _V_POS = {"top": "40", "center": "(h-text_h)/2", "bottom": "h-th-40"}
@@ -159,6 +185,9 @@ class ToolExecutor:
         self.assets = {a.id: a for a in assets}
         self.export_requested = False
         self.mutated = False
+        # Set by ask_user: {"question": str, "options": list[str]}. The engine
+        # stops the loop and surfaces it to the user as clickable choices.
+        self.pending_question: dict[str, Any] | None = None
 
     # -- helpers ---------------------------------------------------------
 
@@ -278,3 +307,12 @@ class ToolExecutor:
             raise ValueError("Timeline is empty - add clips before exporting")
         self.export_requested = True
         return "Export queued. The render job will run in the background."
+
+    def _tool_ask_user(self, question: str, options: list) -> str:
+        if not question.strip():
+            raise ValueError("question must not be empty")
+        cleaned = [str(o).strip() for o in options if str(o).strip()]
+        if not 2 <= len(cleaned) <= 4:
+            raise ValueError("provide between 2 and 4 non-empty options")
+        self.pending_question = {"question": question.strip(), "options": cleaned}
+        return "Question shown to the user. Stop and wait for their choice."

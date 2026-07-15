@@ -21,7 +21,7 @@ from google.genai import types as gtypes
 
 from ...config import get_settings
 from ...models import AgentAction, MediaAsset, Timeline
-from .engine import SYSTEM_PROMPT, AgentError
+from .engine import SYSTEM_PROMPT, AgentError, _project_state
 from .tools import TOOLS, ToolExecutor
 
 log = logging.getLogger(__name__)
@@ -106,6 +106,7 @@ class GeminiEngine:
         message: str,
         timeline: Timeline,
         assets: list[MediaAsset],
+        history: list | None = None,
     ) -> tuple[str, list[AgentAction], ToolExecutor]:
         executor = ToolExecutor(timeline, assets)
         actions: list[AgentAction] = []
@@ -116,8 +117,18 @@ class GeminiEngine:
             temperature=0.2,  # editing ops should be precise, not creative
         )
         contents: list[Any] = [
-            gtypes.Content(role="user", parts=[gtypes.Part(text=message)])
+            gtypes.Content(
+                role="user" if turn.role == "user" else "model",
+                parts=[gtypes.Part(text=turn.text)],
+            )
+            for turn in (history or [])
         ]
+        contents.append(
+            gtypes.Content(
+                role="user",
+                parts=[gtypes.Part(text=f"{_project_state(executor)}\n\n{message}")],
+            )
+        )
 
         reply = ""
         for _ in range(self.max_iterations):
@@ -147,9 +158,15 @@ class GeminiEngine:
                     )
                 )
             contents.append(gtypes.Content(role="user", parts=result_parts))
+            if executor.pending_question:
+                # The agent asked the user to choose; end the turn here and
+                # surface the question + options instead of looping on.
+                break
         else:
             raise AgentError(
                 f"Agent did not finish within {self.max_iterations} tool iterations"
             )
 
+        if executor.pending_question:
+            reply = executor.pending_question["question"]
         return reply or "Done.", actions, executor

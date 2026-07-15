@@ -66,7 +66,7 @@ async def run_agent(
 
     try:
         reply, actions, executor = await engine.run(
-            body.message, project.get_timeline(), assets
+            body.message, project.get_timeline(), assets, history=body.history
         )
     except anthropic.AuthenticationError:
         raise HTTPException(503, "Invalid ANTHROPIC_API_KEY")
@@ -96,4 +96,7 @@ async def run_agent(
     if executor.export_requested:
         await job_service.enqueue_export(project.id)
 
-    return AgentResponse(reply=reply, actions=actions, timeline=executor.timeline)
+    options = executor.pending_question["options"] if executor.pending_question else []
+    return AgentResponse(
+        reply=reply, actions=actions, timeline=executor.timeline, options=options
+    )

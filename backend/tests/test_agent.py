@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.models import Clip, MediaAsset, Timeline
+from app.models import ChatTurn, Clip, MediaAsset, Timeline
 from app.services.agent.engine import AgentEngine, AgentError
 from app.services.agent.tools import TOOLS, ToolExecutor
 from tests.conftest import register_asset
@@ -84,6 +84,21 @@ def test_overlay_vertical_positions():
     assert tl.clips[0].overlays[0].y == "40"
 
 
+def test_ask_user_sets_pending_question():
+    ex = ToolExecutor(Timeline(), make_assets())
+    ex.execute("ask_user", {"question": "Which video?", "options": ["beach.mp4", "city.mp4"]})
+    assert ex.pending_question == {"question": "Which video?", "options": ["beach.mp4", "city.mp4"]}
+    assert not ex.mutated
+
+
+def test_ask_user_requires_two_to_four_options():
+    ex = ToolExecutor(Timeline(), make_assets())
+    with pytest.raises(ValueError, match="2 and 4"):
+        ex.execute("ask_user", {"question": "Which?", "options": ["only one"]})
+    with pytest.raises(ValueError, match="2 and 4"):
+        ex.execute("ask_user", {"question": "Which?", "options": ["a", "b", "c", "d", "e"]})
+
+
 def test_export_requires_clips():
     ex = ToolExecutor(Timeline(), make_assets())
     with pytest.raises(ValueError, match="empty"):
@@ -156,6 +171,41 @@ async def test_engine_reports_tool_errors_to_model(settings):
     second_call = engine.client.messages.calls[1]
     assert second_call["messages"][-1]["content"][0]["is_error"] is True
     assert not ex.mutated
+
+
+@pytest.mark.asyncio
+async def test_engine_stops_on_ask_user_and_returns_options(settings):
+    responses = [
+        SimpleNamespace(stop_reason="tool_use", content=[
+            _tool_use("t1", "ask_user", {
+                "question": "Which video do you mean?",
+                "options": ["beach.mp4", "city.mp4"],
+            }),
+        ]),
+    ]
+    engine = AgentEngine(client=FakeClient(responses))
+    reply, actions, ex = await engine.run("add the video", Timeline(), make_assets())
+
+    assert reply == "Which video do you mean?"
+    assert ex.pending_question["options"] == ["beach.mp4", "city.mp4"]
+    # The turn ends at the question: exactly one API round trip.
+    assert len(engine.client.messages.calls) == 1
+    assert not ex.mutated
+
+
+@pytest.mark.asyncio
+async def test_engine_replays_history_and_injects_state(settings):
+    responses = [SimpleNamespace(stop_reason="end_turn", content=[_text("ok")])]
+    engine = AgentEngine(client=FakeClient(responses))
+    history = [ChatTurn(role="user", text="hello"), ChatTurn(role="agent", text="hi")]
+    await engine.run("add beach", Timeline(), make_assets(), history=history)
+
+    msgs = engine.client.messages.calls[0]["messages"]
+    assert msgs[0] == {"role": "user", "content": "hello"}
+    assert msgs[1] == {"role": "assistant", "content": "hi"}
+    assert "add beach" in msgs[2]["content"]
+    assert "project_state" in msgs[2]["content"]
+    assert "beach.mp4" in msgs[2]["content"]  # asset ids provided up front
 
 
 @pytest.mark.asyncio

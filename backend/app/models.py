@@ -120,8 +120,17 @@ class TimelineUpdate(BaseModel):
     clips: list[Clip]
 
 
+class ChatTurn(BaseModel):
+    """One prior message in the agent conversation, replayed for context."""
+    role: str = PField(pattern="^(user|agent)$")
+    text: str = PField(min_length=1, max_length=4000)
+
+
 class AgentRequest(BaseModel):
     message: str = PField(min_length=1, max_length=4000)
+    # Recent conversation history so follow-ups ("the second one", answers to
+    # clarifying questions) keep their context across turns.
+    history: list[ChatTurn] = PField(default_factory=list, max_length=40)
 
 
 class AgentAction(BaseModel):
@@ -134,3 +143,6 @@ class AgentResponse(BaseModel):
     reply: str
     actions: list[AgentAction]
     timeline: Timeline
+    # Non-empty when the agent asked a clarifying question: the UI renders
+    # these as clickable choices.
+    options: list[str] = PField(default_factory=list)

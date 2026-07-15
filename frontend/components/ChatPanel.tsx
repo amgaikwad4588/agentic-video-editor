@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
-import type { AgentAction, Timeline } from "@/lib/types";
+import type { AgentAction, ChatTurn, Timeline } from "@/lib/types";
 
 interface Message {
   role: "user" | "agent" | "error";
   text: string;
   actions?: AgentAction[];
+  options?: string[];
 }
 
 const SUGGESTIONS = [
@@ -18,6 +19,17 @@ const SUGGESTIONS = [
   "Speed up the last clip 2x and mute it",
   "Export the video",
 ];
+
+// Recent turns replayed to the backend so follow-ups (answers to the agent's
+// questions, "the second one") keep their context.
+const HISTORY_LIMIT = 20;
+
+function toHistory(messages: Message[]): ChatTurn[] {
+  return messages
+    .filter((m) => m.role !== "error")
+    .slice(-HISTORY_LIMIT)
+    .map((m) => ({ role: m.role as "user" | "agent", text: m.text }));
+}
 
 export default function ChatPanel({
   projectId,
@@ -40,10 +52,14 @@ export default function ChatPanel({
     if (!message || busy) return;
     setInput("");
     setBusy(true);
+    const history = toHistory(messages);
     setMessages((m) => [...m, { role: "user", text: message }]);
     try {
-      const res = await api.sendAgentMessage(projectId, message);
-      setMessages((m) => [...m, { role: "agent", text: res.reply, actions: res.actions }]);
+      const res = await api.sendAgentMessage(projectId, message, history);
+      setMessages((m) => [
+        ...m,
+        { role: "agent", text: res.reply, actions: res.actions, options: res.options },
+      ]);
       onTimelineChanged(res.timeline);
     } catch (e) {
       setMessages((m) => [...m, { role: "error", text: (e as Error).message }]);
@@ -52,13 +68,15 @@ export default function ChatPanel({
     }
   }
 
+  const lastIndex = messages.length - 1;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <span className="overline" style={{ marginBottom: 12 }}>Correspondence</span>
 
       <div className="chat-messages">
         {messages.length === 0 && (
-          <div className="muted" style={{ fontSize: 13 }}>
+          <div className="muted" style={{ fontSize: 14 }}>
             Tell the agent what to do, e.g.:
             <ul style={{ paddingLeft: 18, marginTop: 6 }}>
               {SUGGESTIONS.map((s) => (
@@ -75,13 +93,22 @@ export default function ChatPanel({
             {m.actions && m.actions.length > 0 && (
               <div className="actions">
                 {m.actions.map((a, j) => (
-                  <div key={j}>▸ {a.tool}</div>
+                  <div key={j}>&#9656; {a.tool}</div>
+                ))}
+              </div>
+            )}
+            {m.options && m.options.length > 0 && i === lastIndex && !busy && (
+              <div className="chat-options">
+                {m.options.map((option) => (
+                  <button key={option} onClick={() => send(option)}>
+                    {option}
+                  </button>
                 ))}
               </div>
             )}
           </div>
         ))}
-        {busy && <div className="msg agent muted">Working…</div>}
+        {busy && <div className="msg agent muted">Working&hellip;</div>}
         <div ref={bottomRef} />
       </div>
 
