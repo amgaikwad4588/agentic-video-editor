@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import ThemeToggle from "@/components/ThemeToggle";
 import { api } from "@/lib/api";
 import type { Project } from "@/lib/types";
 
@@ -50,6 +51,16 @@ export default function HomePage() {
 
   return (
     <main>
+      <header className="site-header">
+        <span className="brand">
+          Atelier<em>.</em>
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span className="overline">The agentic cutting room</span>
+          <ThemeToggle />
+        </div>
+      </header>
+
       <section className="home-hero">
         <div className="hero-copy">
           <p className="overline ruled">Atelier, Vol. 01</p>
@@ -140,6 +151,36 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="home-content" style={{ paddingBottom: 96 }}>
+        <p className="overline ruled">How it works</p>
+        <div className="steps">
+          <div className="step">
+            <span className="num">01</span>
+            <h3>Upload your footage</h3>
+            <p>
+              Drop video, audio or images into the archive. Everything is
+              probed, thumbnailed and ready to cut in seconds.
+            </p>
+          </div>
+          <div className="step">
+            <span className="num">02</span>
+            <h3>Direct the agent</h3>
+            <p>
+              Say what you want: trim, reorder, split, caption, fade, speed.
+              If your request is ambiguous, the agent asks before it acts.
+            </p>
+          </div>
+          <div className="step">
+            <span className="num">03</span>
+            <h3>Export the cut</h3>
+            <p>
+              One click renders your timeline to a crisp MP4 with progress
+              you can watch, then download.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="home-content">
         <p className="overline ruled" style={{ marginBottom: 8 }}>
           The Collection: {projects.length} project{projects.length === 1 ? "" : "s"}
@@ -173,6 +214,11 @@ export default function HomePage() {
           {projects.length > 0 && <div style={{ borderTop: "1px solid var(--hairline)" }} />}
         </div>
       </section>
+
+      <footer className="site-footer">
+        <span className="overline">Atelier, the agentic cutting room</span>
+        <span className="overline">FastAPI · Next.js · FFmpeg · Claude</span>
+      </footer>
     </main>
   );
 }

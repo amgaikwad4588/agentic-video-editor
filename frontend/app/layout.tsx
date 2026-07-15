@@ -22,10 +22,14 @@ export const metadata: Metadata = {
   description: "Edit video with natural language",
 };
 
+// Applies the saved theme before first paint so dark mode doesn't flash white.
+const themeInit = `(function(){try{if(localStorage.getItem("theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}})()`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${playfair.variable} ${inter.variable}`}>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
         {/* Paper-grain overlay: tactile "expensive paper" texture at 2% */}
         <div className="noise-overlay" aria-hidden="true" />
         {/* Architectural gridlines aligned to the editorial grid (desktop) */}

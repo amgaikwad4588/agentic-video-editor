@@ -15,6 +15,10 @@
 
   --hairline: rgba(26, 26, 26, 0.14);
   --hairline-soft: rgba(26, 26, 26, 0.08);
+  --gridline: rgba(26, 26, 26, 0.06);
+  --hover-tint: rgba(26, 26, 26, 0.03);
+
+  color-scheme: light;
 
   --font-body: var(--font-sans), "Helvetica Neue", sans-serif;
   --font-serif: var(--font-display), Georgia, serif;
@@ -28,6 +32,21 @@
 
   --ease-lux: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
+
+/* Dark theme: same warm monochrome language, inverted. Set on <html> by the
+   theme toggle (persisted in localStorage, applied pre-paint in layout.tsx). */
+html[data-theme="dark"] {
+  --bg: #171512;
+  --fg: #EDEAE3;
+  --muted-bg: #262320;
+  --muted-fg: #A6A099;
+  --hairline: rgba(237, 234, 227, 0.18);
+  --hairline-soft: rgba(237, 234, 227, 0.10);
+  --gridline: rgba(237, 234, 227, 0.05);
+  --hover-tint: rgba(237, 234, 227, 0.05);
+  color-scheme: dark;
+}
+html[data-theme="dark"] .noise-overlay { filter: invert(1); opacity: 0.03; }
 
 * { box-sizing: border-box; border-radius: 0 !important; }
 
@@ -65,7 +84,7 @@ html, body {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(26, 26, 26, 0.06);
+  background: var(--gridline);
 }
 /* Keep the decorative gridlines near the content column; lines drawn out in
    the empty margins of a wide screen make the page feel scattered. */
@@ -183,8 +202,24 @@ input:focus, textarea:focus {
   outline: none;
   border-bottom-color: var(--accent);
 }
-input[type="range"] { border-bottom: none; accent-color: var(--fg); }
+input:hover:not(:focus), textarea:hover:not(:focus) {
+  border-bottom-color: var(--accent);
+}
+input[type="range"] { border-bottom: none; accent-color: var(--fg); cursor: pointer; }
 input[type="number"] { font-variant-numeric: tabular-nums; }
+
+select {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: border-color 0.5s var(--ease-lux);
+}
+select:hover { border-color: var(--accent); }
+select:focus { outline: none; border-color: var(--accent); }
 
 :focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
 
@@ -543,7 +578,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   text-decoration: none;
   transition: background-color 0.7s var(--ease-lux), padding-left 0.5s var(--ease-lux);
 }
-.project-card:hover { background: rgba(26, 26, 26, 0.02); padding-left: 12px; }
+.project-card:hover { background: var(--hover-tint); padding-left: 12px; }
 .project-card strong {
   font-family: var(--font-serif);
   font-size: var(--text-xl);
@@ -551,6 +586,122 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   transition: color 0.5s var(--ease-lux);
 }
 .project-card:hover strong { color: var(--accent); }
+
+/* ---- site header / footer (landing) --------------------------------------- */
+
+.site-header {
+  position: relative;
+  z-index: 1;
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--hairline);
+}
+@media (min-width: 1024px) { .site-header { padding: 20px 48px; } }
+.site-header .brand {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+.site-header .brand em { color: var(--accent); font-style: italic; }
+
+.theme-toggle {
+  min-height: 34px;
+  padding: 0 14px;
+  letter-spacing: 0.12em;
+  border-color: var(--hairline);
+  color: var(--muted-fg);
+}
+.theme-toggle:hover:not(:disabled) { border-color: var(--fg); }
+
+.site-footer {
+  position: relative;
+  z-index: 1;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 28px 32px 40px;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+@media (min-width: 1024px) { .site-footer { padding: 28px 48px 40px; } }
+
+/* ---- how it works strip ------------------------------------------------------ */
+
+.steps {
+  display: grid;
+  gap: 24px;
+  margin-top: 32px;
+}
+@media (min-width: 768px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+.step {
+  border-top: 1px solid var(--fg);
+  padding-top: 18px;
+}
+.step .num {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--text-lg);
+  color: var(--accent);
+}
+.step h3 { font-size: 22px; margin-top: 6px; }
+.step p { margin: 10px 0 0; color: var(--muted-fg); font-size: var(--text-sm); }
+
+/* ---- upload zone ----------------------------------------------------------------- */
+
+.upload-btn { width: 100%; margin-top: 4px; }
+
+.upload-zone {
+  margin-top: 14px;
+  border: 1px dashed var(--hairline);
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.5s var(--ease-lux), background-color 0.5s var(--ease-lux);
+}
+.upload-zone:hover, .upload-zone.drag {
+  border-color: var(--accent);
+  background: var(--hover-tint);
+}
+.upload-zone .big {
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  display: block;
+}
+.upload-zone .hint {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  color: var(--muted-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.upload-status {
+  margin-top: 12px;
+  font-size: var(--text-xs);
+  color: var(--muted-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* ---- chat suggestions: obviously clickable ----------------------------------- */
+
+.suggestion {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-underline-offset: 4px;
+  transition: color 0.4s var(--ease-lux), text-decoration-color 0.4s var(--ease-lux);
+}
+.suggestion:hover { color: var(--fg); text-decoration-color: var(--accent); }
+.suggestion::after { content: " \2192"; color: var(--accent); }
 
 /* ---- motion preferences ----------------------------------------------------------- */
 

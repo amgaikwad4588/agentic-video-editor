@@ -16,7 +16,9 @@ const SUGGESTIONS = [
   "Add the first video to the timeline",
   "Trim the first clip to the first 5 seconds",
   "Add a title saying “My Vacation” to the first clip",
-  "Speed up the last clip 2x and mute it",
+  "Split the first clip at 10 seconds",
+  "Make the last clip black and white",
+  "Add a 1 second fade out at the end",
   "Export the video",
 ];
 
@@ -80,7 +82,7 @@ export default function ChatPanel({
             Tell the agent what to do, e.g.:
             <ul style={{ paddingLeft: 18, marginTop: 6 }}>
               {SUGGESTIONS.map((s) => (
-                <li key={s} style={{ cursor: "pointer", marginBottom: 4 }} onClick={() => send(s)}>
+                <li key={s} className="suggestion" style={{ marginBottom: 6 }} onClick={() => send(s)}>
                   {s}
                 </li>
               ))}

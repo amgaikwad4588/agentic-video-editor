@@ -6,6 +6,11 @@ import { api } from "@/lib/api";
 import { formatTime } from "@/lib/timeline";
 import type { MediaAsset } from "@/lib/types";
 
+interface UploadState {
+  filename: string;
+  fraction: number; // 0..1 network progress; server processing follows
+}
+
 export default function MediaLibrary({
   assets,
   onChanged,
@@ -16,42 +21,76 @@ export default function MediaLibrary({
   onAddToTimeline: (assetId: string) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const [upload, setUpload] = useState<UploadState | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function upload(files: FileList | null) {
-    if (!files?.length) return;
-    setUploading(true);
+  async function uploadFiles(files: FileList | File[] | null) {
+    const list = files ? Array.from(files) : [];
+    if (!list.length || upload) return;
     setError(null);
     try {
-      for (const file of Array.from(files)) {
-        await api.uploadMedia(file);
+      for (const file of list) {
+        setUpload({ filename: file.name, fraction: 0 });
+        await api.uploadMedia(file, (fraction) =>
+          setUpload({ filename: file.name, fraction }),
+        );
+        onChanged();
       }
-      onChanged();
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setUploading(false);
+      setUpload(null);
       if (fileInput.current) fileInput.current.value = "";
     }
   }
 
+  const pct = upload ? Math.round(upload.fraction * 100) : 0;
+
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="overline">The Archive</span>
-        <button onClick={() => fileInput.current?.click()} disabled={uploading}>
-          {uploading ? "Uploading…" : "+ Upload"}
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          accept="video/*,audio/*,image/*"
-          hidden
-          onChange={(e) => upload(e.target.files)}
-        />
-      </div>
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        uploadFiles(e.dataTransfer.files);
+      }}
+    >
+      <span className="overline">The Archive</span>
+
+      <button
+        className="primary upload-btn"
+        onClick={() => fileInput.current?.click()}
+        disabled={!!upload}
+        style={{ marginTop: 12 }}
+      >
+        {upload ? `Uploading ${pct}%` : "+ Upload footage"}
+      </button>
+      <input
+        ref={fileInput}
+        type="file"
+        multiple
+        accept="video/*,audio/*,image/*"
+        hidden
+        onChange={(e) => uploadFiles(e.target.files)}
+      />
+
+      {upload && (
+        <div style={{ marginTop: 10 }}>
+          <div className="progress-bar">
+            <div style={{ width: `${pct}%` }} />
+          </div>
+          <div className="upload-status">
+            {pct < 100
+              ? `Sending ${upload.filename}`
+              : `Processing ${upload.filename}, one moment`}
+          </div>
+        </div>
+      )}
 
       {error && (
         <p className="muted" style={{ fontStyle: "italic", fontSize: 14 }}>{error}</p>
@@ -74,7 +113,7 @@ export default function MediaLibrary({
                 {a.duration != null ? formatTime(a.duration) : "still"}
               </div>
             </div>
-            <button title="Add to timeline" onClick={() => onAddToTimeline(a.id)}>+</button>
+            <button title="Add to timeline" onClick={() => onAddToTimeline(a.id)}>+ Add</button>
             <button
               className="danger"
               title="Delete asset"
@@ -87,10 +126,16 @@ export default function MediaLibrary({
             </button>
           </div>
         ))}
-        {assets.length === 0 && (
-          <p className="muted serif" style={{ fontStyle: "italic" }}>
-            Upload video, audio or images to begin.
-          </p>
+        {assets.length === 0 && !upload && (
+          <div
+            className={`upload-zone ${dragging ? "drag" : ""}`}
+            onClick={() => fileInput.current?.click()}
+            role="button"
+            aria-label="Upload media"
+          >
+            <span className="big">Drop footage here</span>
+            <span className="hint">or click to browse. Video, audio or images</span>
+          </div>
         )}
       </div>
     </div>
