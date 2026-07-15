@@ -67,10 +67,12 @@ html, body {
   width: 1px;
   background: rgba(26, 26, 26, 0.06);
 }
-.gridlines span:nth-child(1) { left: 4%; }
+/* Keep the decorative gridlines near the content column; lines drawn out in
+   the empty margins of a wide screen make the page feel scattered. */
+.gridlines span:nth-child(1) { left: max(4%, calc(50% - 620px)); }
 .gridlines span:nth-child(2) { left: 50%; }
-.gridlines span:nth-child(3) { left: 75%; }
-.gridlines span:nth-child(4) { right: 4%; }
+.gridlines span:nth-child(3) { left: min(75%, calc(50% + 320px)); }
+.gridlines span:nth-child(4) { right: max(4%, calc(50% - 620px)); }
 @media (min-width: 1024px) {
   .gridlines { display: block; }
 }
@@ -422,30 +424,33 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---- home page ------------------------------------------------------------------ */
 
+/* The landing column is deliberately narrower than the editor (1600px):
+   left-aligned editorial copy in a huge container strands everything in the
+   left third of a wide screen and leaves a dead field on the right. */
 .home-hero {
   position: relative;
   z-index: 1;
-  max-width: 1600px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 96px 32px 64px;
+  padding: 72px 32px 48px;
 }
 @media (min-width: 1024px) {
-  .home-hero { padding: 128px 64px 80px; }
+  .home-hero { padding: 96px 48px 64px; }
 }
 .home-hero h1 {
-  font-size: clamp(3rem, 9vw, 7.5rem);
+  font-size: clamp(3rem, 8vw, 6.5rem);
   line-height: 0.95;
   max-width: 12ch;
 }
 .home-content {
   position: relative;
   z-index: 1;
-  max-width: 1600px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 32px 128px;
+  padding: 0 32px 88px;
 }
 @media (min-width: 1024px) {
-  .home-content { padding: 0 64px 160px; }
+  .home-content { padding: 0 48px 112px; }
 }
 
 /* ---- landing gallery: real editor screenshots, editorial treatment -------- */
@@ -454,7 +459,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 24px;
-  margin-top: 48px;
+  margin-top: 32px;
   align-items: start;
 }
 .shot-main { grid-column: 1 / 9; position: relative; }
