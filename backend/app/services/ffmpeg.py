@@ -307,7 +307,10 @@ def build_export_command(
         "-filter_complex", ";".join(filters),
         "-map", "[vout]", "-map", "[aout]",
         "-r", str(OUT_FPS),
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+        # veryfast over medium: 3-5x faster encodes for a small size penalty.
+        # On low-CPU hosts (free-tier containers) medium sits at 0% long
+        # enough that users assume the export is broken.
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         "-progress", "pipe:1", "-nostats",
