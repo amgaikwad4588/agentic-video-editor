@@ -388,6 +388,32 @@ select:focus { outline: none; border-color: var(--accent); }
   letter-spacing: 0.06em;
 }
 
+/* trim handles: drag a clip's edges to shorten or lengthen it */
+.clip-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-lux);
+}
+.clip-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.clip-handle.left { left: 0; }
+.clip-handle.left::after { left: 0; }
+.clip-handle.right { right: 0; }
+.clip-handle.right::after { right: 0; }
+.clip-block:hover .clip-handle,
+.clip-block.selected .clip-handle { opacity: 1; }
+
 /* clip inspector inputs sit inline; keep them compact */
 .editor-timeline label { font-size: var(--text-xs); color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.1em; }
 .editor-timeline input { font-size: var(--text-sm); padding: 4px 0; }

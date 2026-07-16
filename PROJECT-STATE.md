@@ -1,6 +1,21 @@
 # Project State — Checkpoint
 
-_Last updated: 2026-07-15 (agent smartness + UI readability stage, pushed)._
+_Last updated: 2026-07-15 (export UX + trim handles stage)._
+
+## Stage: export reliability + direct-manipulation trimming (2026-07-15, later)
+
+- **Export diagnosis**: live e2e passed both direct to Render and through the
+  Vercel proxy (upload -> timeline -> export -> download). The "not working"
+  reports were UX: `-preset medium` sat at 0% on the free tier (now
+  `veryfast`), a page refresh lost the job (ExportPanel now re-adopts the
+  latest job via listJobs on mount), and failures were tooltip-only (error
+  text now visible with a Retry button).
+- **Trim by dragging**: clip blocks in The Cut have gold edge handles;
+  dragging adjusts start/end live (draft state, committed once on release).
+  Preview gained a maximize (fullscreen) button.
+- Earlier same day: fades/filters/split_clip editing features, dark mode,
+  upload progress, landing redesign, ask_user options, history, state
+  injection (see sections below).
 
 ## Latest stage (2026-07-15) — done, tested, pushed
 

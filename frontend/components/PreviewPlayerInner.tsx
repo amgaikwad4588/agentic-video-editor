@@ -206,6 +206,19 @@ export default function PreviewPlayerInner({
         <span className="muted" style={{ minWidth: 110, textAlign: "right" }}>
           {formatTime(playhead)} / {formatTime(total)}
         </span>
+        <button
+          title="Maximize the preview (Esc to exit)"
+          aria-label="Maximize preview"
+          style={{ minHeight: 34, padding: "0 12px" }}
+          onClick={() => {
+            const el = containerRef.current;
+            if (!el) return;
+            if (document.fullscreenElement) document.exitFullscreen();
+            else el.requestFullscreen().catch(() => {});
+          }}
+        >
+          ⛶
+        </button>
       </div>
       {selectedClipId && pos?.clip.id === selectedClipId && (
         <div className="muted" style={{ fontSize: 12 }}>Previewing selected clip</div>

@@ -1,11 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { clipDuration, formatTime, moveClip } from "@/lib/timeline";
 import type { Clip, MediaAsset, Timeline } from "@/lib/types";
 
 const PX_PER_SECOND = 24;
+const MIN_CLIP_SECONDS = 0.2;
+
+interface TrimDrag {
+  clipId: string;
+  side: "start" | "end";
+  originX: number;
+  origStart: number;
+  origEnd: number;
+  maxEnd: number;
+  speed: number;
+}
 
 export default function TimelineStrip({
   timeline,
@@ -21,8 +32,70 @@ export default function TimelineStrip({
   onChange: (t: Timeline) => void;
 }) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // Live in/out points while a trim handle is being dragged; committed once
+  // on release so we don't save to the server on every mouse move.
+  const [draft, setDraft] = useState<{ clipId: string; start: number; end: number } | null>(null);
+  const trimRef = useRef<TrimDrag | null>(null);
 
   const selected = timeline.clips.find((c) => c.id === selectedClipId) ?? null;
+
+  function trimHandleProps(clip: Clip, side: "start" | "end") {
+    return {
+      onDragStart: (e: React.DragEvent) => e.preventDefault(),
+      onPointerDown: (e: React.PointerEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const assetDur = assets.get(clip.asset_id)?.duration ?? null;
+        const end = clip.end ?? assetDur;
+        if (end == null) return; // source length unknown: nothing to drag against
+        trimRef.current = {
+          clipId: clip.id,
+          side,
+          originX: e.clientX,
+          origStart: clip.start,
+          origEnd: end,
+          maxEnd: assetDur ?? Number.POSITIVE_INFINITY,
+          speed: clip.speed,
+        };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        setDraft({ clipId: clip.id, start: clip.start, end });
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        const t = trimRef.current;
+        if (!t) return;
+        // Clip width is output time (source/speed), so convert px back to
+        // source seconds via speed.
+        const deltaSec = ((e.clientX - t.originX) / PX_PER_SECOND) * t.speed;
+        if (t.side === "start") {
+          const start = Math.min(
+            Math.max(0, t.origStart + deltaSec),
+            t.origEnd - MIN_CLIP_SECONDS,
+          );
+          setDraft({ clipId: t.clipId, start, end: t.origEnd });
+        } else {
+          const end = Math.max(
+            Math.min(t.maxEnd, t.origEnd + deltaSec),
+            t.origStart + MIN_CLIP_SECONDS,
+          );
+          setDraft({ clipId: t.clipId, start: t.origStart, end });
+        }
+      },
+      onPointerUp: () => {
+        const t = trimRef.current;
+        trimRef.current = null;
+        if (!t || !draft) return;
+        const start = Math.round(draft.start * 10) / 10;
+        const end = Math.round(draft.end * 10) / 10;
+        setDraft(null);
+        onChange({
+          clips: timeline.clips.map((c) =>
+            c.id === t.clipId ? { ...c, start, end } : c,
+          ),
+        });
+      },
+      onClick: (e: React.MouseEvent) => e.stopPropagation(),
+    };
+  }
 
   function patchSelected(patch: Partial<Clip>) {
     if (!selected) return;
@@ -144,13 +217,15 @@ export default function TimelineStrip({
       <div className="clip-strip" onClick={() => onSelect(null)}>
         {timeline.clips.map((clip, i) => {
           const asset = assets.get(clip.asset_id);
-          const dur = clipDuration(clip, assets);
+          const eff = draft?.clipId === clip.id ? draft : null;
+          const shown = eff ? { ...clip, start: eff.start, end: eff.end } : clip;
+          const dur = clipDuration(shown, assets);
           return (
             <div
               key={clip.id}
               className={`clip-block ${clip.id === selectedClipId ? "selected" : ""}`}
               style={{ width: Math.max(60, dur * PX_PER_SECOND) }}
-              draggable
+              draggable={!draft}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect(clip.id);
@@ -164,11 +239,11 @@ export default function TimelineStrip({
                 }
                 setDragIndex(null);
               }}
-              title={`${asset?.filename ?? clip.asset_id} (${formatTime(dur)})`}
+              title={`${asset?.filename ?? clip.asset_id} (${formatTime(dur)}). Drag edges to trim.`}
             >
               <div className="label">{asset?.filename ?? clip.asset_id}</div>
               <div className="meta">
-                {clip.start.toFixed(1)}s → {clip.end != null ? `${clip.end.toFixed(1)}s` : "end"}
+                {shown.start.toFixed(1)}s → {shown.end != null ? `${shown.end.toFixed(1)}s` : "end"}
               </div>
               <div className="meta">{formatTime(dur)}</div>
               <div className="badges">
@@ -178,6 +253,8 @@ export default function TimelineStrip({
                 {(clip.fade_in > 0 || clip.fade_out > 0) && <span>◐fade </span>}
                 {clip.filter && clip.filter !== "none" && <span>{clip.filter === "grayscale" ? "b/w" : clip.filter}</span>}
               </div>
+              <div className="clip-handle left" title="Drag to trim the in-point" {...trimHandleProps(clip, "start")} />
+              <div className="clip-handle right" title="Drag to trim the out-point" {...trimHandleProps(clip, "end")} />
             </div>
           );
         })}
