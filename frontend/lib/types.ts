@@ -39,6 +39,17 @@ export interface SpeedPoint {
   speed: number;
 }
 
+/** One transform keyframe at `at` clip-output seconds; values interpolate
+ * linearly between keyframes. x/y are pixel offsets from the canvas centre
+ * in 1280x720 export coordinates; rotation is degrees. */
+export interface Keyframe {
+  at: number;
+  scale: number;
+  x: number;
+  y: number;
+  rotation: number;
+}
+
 export interface Clip {
   id: string;
   asset_id: string;
@@ -47,6 +58,8 @@ export interface Clip {
   speed: number;
   /** Non-empty overrides `speed` (piecewise-constant velocity curve). */
   speed_ramp: SpeedPoint[];
+  /** Transform animation over the clip's output time; empty = none. */
+  keyframes: Keyframe[];
   volume: number;
   fade_in: number;
   fade_out: number;

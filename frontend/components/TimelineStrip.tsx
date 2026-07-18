@@ -270,6 +270,9 @@ export default function TimelineStrip({
                 {clip.volume !== 1 && <span>🔊{clip.volume} </span>}
                 {clip.overlays.length > 0 && <span>💬{clip.overlays.length} </span>}
                 {(clip.fade_in > 0 || clip.fade_out > 0) && <span>◐fade </span>}
+                {(clip.keyframes?.length ?? 0) > 0 && (
+                  <span title={`${clip.keyframes.length} transform keyframes`}>✦anim </span>
+                )}
                 {clip.filter && clip.filter !== "none" && <span>{clip.filter === "grayscale" ? "b/w" : clip.filter}</span>}
               </div>
               <div className="clip-handle left" title="Drag to trim the in-point" {...trimHandleProps(clip, "start")} />

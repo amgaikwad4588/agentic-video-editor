@@ -111,6 +111,32 @@ export function clipStartTime(
     .reduce((sum, c) => sum + clipDuration(c, assets), 0);
 }
 
+export interface ClipTransform {
+  scale: number;
+  x: number;
+  y: number;
+  rotation: number;
+}
+
+/** Interpolated transform of a clip at `offset` output seconds. Mirrors the
+ * backend's _lerp_expr (linear between keyframes, ends held). */
+export function keyframeTransform(clip: Clip, offset: number): ClipTransform | null {
+  const kfs = clip.keyframes ?? [];
+  if (kfs.length === 0) return null;
+  const lerp = (key: "scale" | "x" | "y" | "rotation"): number => {
+    if (offset <= kfs[0].at) return kfs[0][key];
+    for (let j = 0; j + 1 < kfs.length; j++) {
+      const a = kfs[j];
+      const b = kfs[j + 1];
+      if (offset < b.at) {
+        return a[key] + ((b[key] - a[key]) * (offset - a.at)) / (b.at - a.at);
+      }
+    }
+    return kfs[kfs.length - 1][key];
+  };
+  return { scale: lerp("scale"), x: lerp("x"), y: lerp("y"), rotation: lerp("rotation") };
+}
+
 /** mm:ss.d formatting for the player UI. */
 export function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;

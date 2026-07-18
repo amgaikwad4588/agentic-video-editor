@@ -155,17 +155,14 @@ def make_thumbnail(src: str | Path, dest: str | Path, at: float = 0.5) -> None:
 # Filter graph construction
 # --------------------------------------------------------------------------
 
-def _escape_drawtext(text: str) -> str:
-    """Escape user text for a single-quoted drawtext value.
+def _escape_path(path: str) -> str:
+    """Escape a filesystem path for a quoted filtergraph option value.
 
-    Inside single quotes the filtergraph parser treats everything literally
-    EXCEPT the quote itself, which must be written as '\\'' (close quote,
-    escaped quote, reopen). Combined with expansion=none on the filter, this
-    makes arbitrary user text safe - "Let's go: 100%" included. Getting this
-    wrong shifts every later quoted region and breaks the whole graph (see
-    docs/ERRORS-AND-FIXES.md #6).
+    Forward slashes + backslash-escaped drive colon, wrapped in single quotes
+    by the caller. ffmpeg 7's rewritten graph parser rejects the bare C\\:
+    form that 4.x accepted; the quoted+escaped combination works on both.
     """
-    return text.replace("'", "'\\''")
+    return path.replace("\\", "/").replace(":", "\\:")
 
 
 def _atempo_chain(speed: float) -> str:
@@ -182,6 +179,32 @@ def _atempo_chain(speed: float) -> str:
         remaining /= 0.5
     parts.append(f"atempo={remaining:.4f}")
     return ",".join(parts)
+
+
+def _lerp_expr(points: list[tuple[float, float]], tvar: str = "t") -> str:
+    """Piecewise-linear ffmpeg expression through (time, value) points.
+
+    Holds the first value before the first point and the last value after the
+    last. The result contains commas, so callers must place it inside a
+    single-quoted filter option (like enable='...' already does).
+
+    The isnan guard matters: filters evaluate their expressions once at
+    configure time with t=NaN, and trunc(NaN) aborts the whole graph - the
+    guard returns the first keyframe's value there instead.
+    """
+    if len(points) == 1:
+        return f"{points[0][1]:.6g}"
+    expr = f"{points[-1][1]:.6g}"
+    for (t0, v0), (t1, v1) in reversed(list(zip(points, points[1:]))):
+        seg = (
+            f"({v0:.6g}+({v1:.6g}-{v0:.6g})*"
+            f"({tvar}-{t0:.4f})/{t1 - t0:.4f})"
+        )
+        expr = f"if(lt({tvar},{t1:.4f}),{seg},{expr})"
+    return (
+        f"if(isnan({tvar})+lt({tvar},{points[0][0]:.4f}),"
+        f"{points[0][1]:.6g},{expr})"
+    )
 
 
 def _clip_segments(
@@ -246,14 +269,12 @@ def build_export_command(
         raise FFmpegError("Timeline is empty - nothing to export")
 
     ffmpeg = resolve_ffmpeg()
-    font = resolve_font().replace("\\", "/")
-    # drawtext on Windows: 'C\:/...' - the drive colon must be escaped inside
-    # the filter, else it is parsed as an option separator.
-    font = font.replace(":", "\\:")
+    font = _escape_path(resolve_font())
 
     inputs: list[str] = []
     filters: list[str] = []
     concat_refs: list[str] = []
+    sidecar_files: list[Path] = []  # drawtext textfile sidecars ({output}.ov*.txt)
     total_duration = 0.0
 
     seg_idx = 0  # one ffmpeg input per constant-speed segment
@@ -305,6 +326,37 @@ def build_export_command(
             )
             if clip.filter in _CLIP_FILTERS:
                 v += "," + _CLIP_FILTERS[clip.filter]
+
+            if clip.keyframes:
+                # Transform keyframes: rotate/zoom the normalised frame, then
+                # composite onto a black canvas at the keyframed position.
+                # Times are in clip OUTPUT seconds; segment-local t is offset
+                # by the segment's start in the clip so ramped clips animate
+                # continuously.
+                kfs = clip.keyframes
+                tv = f"(t+{seg_out_start:.4f})" if seg_out_start > 0 else "t"
+                filters.append(v + f"[kb{i}]")
+                k = f"[kb{i}]"
+                if any(kf.rotation for kf in kfs):
+                    r = _lerp_expr([(kf.at, kf.rotation) for kf in kfs], tv)
+                    k += f"rotate=a='({r})*PI/180':fillcolor=black,"
+                sc = _lerp_expr([(kf.at, kf.scale) for kf in kfs], tv)
+                # trunc(../2)*2 keeps dimensions even for yuv420p.
+                k += (
+                    f"scale=w='trunc(iw*({sc})/2)*2'"
+                    f":h='trunc(ih*({sc})/2)*2':eval=frame[ks{i}]"
+                )
+                filters.append(k)
+                filters.append(
+                    f"color=c=black:s={OUT_W}x{OUT_H}:r={OUT_FPS}[bg{i}]"
+                )
+                x = _lerp_expr([(kf.at, kf.x) for kf in kfs], tv)
+                y = _lerp_expr([(kf.at, kf.y) for kf in kfs], tv)
+                v = (
+                    f"[bg{i}][ks{i}]overlay=x='(W-w)/2+({x})'"
+                    f":y='(H-h)/2+({y})':shortest=1,format=yuv420p"
+                )
+
             if fades_v:
                 v += "," + ",".join(fades_v)
             for ov in clip.overlays:
@@ -315,12 +367,17 @@ def build_export_command(
                 hi = min(seg_out, ov_end - seg_out_start)
                 if hi <= lo:
                     continue
-                # fontfile is deliberately NOT quoted (paths have no spaces;
-                # the drive colon is already backslash-escaped).
-                # expansion=none makes drawtext render the text literally.
+                # User text goes through textfile= instead of text=: ffmpeg
+                # 7's graph parser mis-splits quoted values that mix colons
+                # and escaped apostrophes, and a sidecar file sidesteps the
+                # whole escaping problem for arbitrary text. The files sit
+                # next to the output and are cleaned up by export_timeline.
+                txt_path = Path(f"{output}.ov{i}_{len(sidecar_files)}.txt")
+                txt_path.write_text(ov.text, encoding="utf-8")
+                sidecar_files.append(txt_path)
                 v += (
-                    f",drawtext=fontfile={font}:text='{_escape_drawtext(ov.text)}'"
-                    f":expansion=none"
+                    f",drawtext=fontfile='{font}'"
+                    f":textfile='{_escape_path(str(txt_path))}'"
                     f":fontsize={ov.font_size}:fontcolor={ov.color}"
                     f":x={ov.x}:y={ov.y}"
                     f":enable='between(t,{lo:.4f},{hi:.4f})'"
@@ -382,6 +439,19 @@ def export_timeline(
     """
     argv, expected = build_export_command(timeline, asset_paths, asset_info, output)
 
+    try:
+        _run_export(argv, expected, on_progress)
+    finally:
+        # Overlay textfile sidecars written by build_export_command.
+        for txt in Path(output).parent.glob(f"{Path(output).name}.ov*.txt"):
+            txt.unlink(missing_ok=True)
+
+
+def _run_export(
+    argv: list[str],
+    expected: float,
+    on_progress: Callable[[float], None] | None,
+) -> None:
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as errfile:
         proc = subprocess.Popen(
             argv, stdout=subprocess.PIPE, stderr=errfile,

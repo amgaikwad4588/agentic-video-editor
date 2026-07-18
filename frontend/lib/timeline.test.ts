@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  clipAtTime, clipDuration, clipStartTime, formatTime, moveClip, timelineDuration,
+  clipAtTime, clipDuration, clipStartTime, formatTime, keyframeTransform,
+  moveClip, timelineDuration,
 } from "./timeline";
 import type { Clip, MediaAsset, Timeline } from "./types";
 
@@ -12,8 +13,8 @@ const asset = (id: string, duration: number): MediaAsset => ({
 
 const clip = (over: Partial<Clip>): Clip => ({
   id: Math.random().toString(36).slice(2),
-  asset_id: "a", start: 0, end: null, speed: 1, speed_ramp: [], volume: 1,
-  fade_in: 0, fade_out: 0, filter: "none", overlays: [],
+  asset_id: "a", start: 0, end: null, speed: 1, speed_ramp: [], keyframes: [],
+  volume: 1, fade_in: 0, fade_out: 0, filter: "none", overlays: [],
   ...over,
 });
 
@@ -103,6 +104,32 @@ describe("speed ramps", () => {
       speed_ramp: [{ at: 0, speed: 1 }, { at: 8, speed: 4 }],
     });
     expect(clipDuration(c, assets)).toBe(5);
+  });
+});
+
+describe("keyframeTransform", () => {
+  const animated = clip({
+    keyframes: [
+      { at: 1, scale: 1, x: 0, y: 0, rotation: 0 },
+      { at: 3, scale: 2, x: 100, y: -40, rotation: 10 },
+    ],
+  });
+
+  it("returns null without keyframes", () => {
+    expect(keyframeTransform(clip({}), 1)).toBeNull();
+  });
+  it("holds the first keyframe before it starts", () => {
+    expect(keyframeTransform(animated, 0)!.scale).toBe(1);
+  });
+  it("interpolates linearly between keyframes", () => {
+    const mid = keyframeTransform(animated, 2)!;
+    expect(mid.scale).toBe(1.5);
+    expect(mid.x).toBe(50);
+    expect(mid.y).toBe(-20);
+    expect(mid.rotation).toBe(5);
+  });
+  it("holds the last keyframe after it ends", () => {
+    expect(keyframeTransform(animated, 99)!.x).toBe(100);
   });
 });
 

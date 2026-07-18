@@ -120,6 +120,43 @@ def test_split_clip_splits_the_speed_ramp():
     assert [(p.at, p.speed) for p in second.speed_ramp] == [(0.0, 1.0), (2.0, 2.0)]
 
 
+def test_set_keyframes_validates_and_applies():
+    tl = Timeline(clips=[Clip(id="c1", asset_id="a1", start=0.0, end=10.0)])
+    ex = ToolExecutor(tl, make_assets())
+    ex.execute("set_keyframes", {"clip_id": "c1", "keyframes": [
+        {"at": 0, "scale": 1.0, "x": 0, "y": 0, "rotation": 0},
+        {"at": 5, "scale": 1.5, "x": 100, "y": -50, "rotation": 15},
+    ]})
+    assert len(tl.clips[0].keyframes) == 2
+    assert "keyframes=2" in ex.execute("get_timeline", {})
+
+    with pytest.raises(ValueError, match="ascending"):
+        ex.execute("set_keyframes", {"clip_id": "c1", "keyframes": [
+            {"at": 3, "scale": 1.0, "x": 0, "y": 0, "rotation": 0},
+            {"at": 3, "scale": 2.0, "x": 0, "y": 0, "rotation": 0},
+        ]})
+    with pytest.raises(ValueError, match="Invalid keyframe"):
+        ex.execute("set_keyframes", {"clip_id": "c1", "keyframes": [
+            {"at": 0, "scale": 99, "x": 0, "y": 0, "rotation": 0},
+        ]})
+
+    ex.execute("set_keyframes", {"clip_id": "c1", "keyframes": []})
+    assert tl.clips[0].keyframes == []
+
+
+def test_split_clip_distributes_keyframes():
+    from app.models import Keyframe
+    clip = Clip(id="c1", asset_id="a1", start=0.0, end=10.0, keyframes=[
+        Keyframe(at=1.0, scale=1.0, x=0, y=0, rotation=0),
+        Keyframe(at=8.0, scale=2.0, x=0, y=0, rotation=0),
+    ])
+    ex = ToolExecutor(Timeline(clips=[clip]), make_assets())
+    ex.execute("split_clip", {"clip_id": "c1", "at": 4.0})
+    first, second = ex.timeline.clips
+    assert [k.at for k in first.keyframes] == [1.0]
+    assert [k.at for k in second.keyframes] == [4.0]  # 8.0 shifted by the cut
+
+
 def test_overlay_vertical_positions():
     tl = Timeline(clips=[Clip(id="c1", asset_id="a1")])
     ex = ToolExecutor(tl, make_assets())

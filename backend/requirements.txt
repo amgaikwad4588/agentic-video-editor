@@ -15,7 +15,9 @@ google-genai>=1.0,<2
 # FFmpeg: imageio-ffmpeg bundles a static ffmpeg binary so the app works even
 # when ffmpeg is not installed on the host (Windows dev machines, CI).
 # In Docker we install real ffmpeg via apt and it takes precedence.
-imageio-ffmpeg==0.5.1
+# 0.6.0 bundles ffmpeg 7.x; keyframe animation needs `t` in scale
+# expressions, which ffmpeg gained in 5.0 (0.5.x could resolve to 4.2.2).
+imageio-ffmpeg==0.6.0
 
 # Async file IO for uploads
 aiofiles==24.1.0

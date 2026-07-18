@@ -188,3 +188,30 @@ use `set -o pipefail`, or redirect to a log file and echo `$?` explicitly:
 ```bash
 npm run build > build.log 2>&1; echo "exit: $?"
 ```
+
+## 19. ffmpeg 7 rejects filtergraph quoting that 4.x accepted
+
+**Symptom:** after upgrading imageio-ffmpeg (4.2.2 -> 7.1), every export with
+a text overlay failed with `No option name near '...'` / `Error parsing
+global options: Invalid argument`. Same graphs rendered fine on 4.2.2.
+**Why:** ffmpeg 7 rewrote the filtergraph parser. Two casualties:
+(1) a bare escaped drive colon in `fontfile=C\:/...` no longer parses — the
+value must ALSO be single-quoted (`fontfile='C\:/...'`); (2) quoted `text=`
+values mixing colons and the `'\''` apostrophe idiom (`text='Hello: it'\''s'`)
+mis-split at the colon.
+**Fix:** quote+escape all path options (`_escape_path`), and stop inlining
+user text entirely: overlays go through `textfile=` sidecar files written
+next to the export output and deleted after the run. Arbitrary user text
+(quotes, colons, %, newlines) needs no escaping at all that way.
+
+## 20. Filter expressions with `t` abort at graph-configure time
+
+**Symptom:** keyframe animation via `scale=w='trunc(iw*if(lt(t,...)...)/2)*2'
+:eval=frame` failed instantly: `Error when evaluating the expression`.
+**Why:** filters evaluate their expressions once while configuring the graph
+with `t = NaN`; `trunc(NaN)` is an error and kills the whole export. (Also:
+`t` in scale expressions requires ffmpeg >= 5.0 — the 4.2.2 binary that
+imageio-ffmpeg 0.5.x could resolve to doesn't support it at all.)
+**Fix:** every generated time expression is wrapped
+`if(isnan(t)+lt(t,first_at), first_value, ...)` (see `_lerp_expr`), and
+imageio-ffmpeg is pinned to 0.6.0 (bundles ffmpeg 7.x).

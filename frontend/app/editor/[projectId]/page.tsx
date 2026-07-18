@@ -100,6 +100,7 @@ export default function EditorPage({
                 end: null,
                 speed: 1,
                 speed_ramp: [],
+                keyframes: [],
                 volume: 1,
                 fade_in: 0,
                 fade_out: 0,

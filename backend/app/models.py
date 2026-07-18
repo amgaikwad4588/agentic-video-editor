@@ -52,6 +52,18 @@ class SpeedPoint(BaseModel):
     speed: float = PField(gt=0.09, lt=10.1)
 
 
+class Keyframe(BaseModel):
+    """One transform keyframe, in clip OUTPUT seconds. Values are linearly
+    interpolated between keyframes; before the first / after the last the
+    nearest keyframe's values hold."""
+    at: float = PField(ge=0)
+    scale: float = PField(default=1.0, gt=0.05, le=5.0)
+    # Pixel offset from the canvas centre (1280x720 export coordinates).
+    x: float = PField(default=0.0, ge=-2000, le=2000)
+    y: float = PField(default=0.0, ge=-2000, le=2000)
+    rotation: float = PField(default=0.0, ge=-360, le=360)  # degrees
+
+
 class Clip(BaseModel):
     """One segment on the timeline referencing a source asset."""
     id: str = PField(default_factory=_id)
@@ -64,6 +76,9 @@ class Clip(BaseModel):
     # Non-empty overrides `speed`; first point must be at=0, points strictly
     # ascending.
     speed_ramp: list[SpeedPoint] = PField(default_factory=list)
+    # Transform keyframes (VN-style): animate zoom/position/rotation over the
+    # clip's output time. Empty = no animation.
+    keyframes: list[Keyframe] = PField(default_factory=list)
     volume: float = PField(default=1.0, ge=0.0, le=5.0)
     # Fade durations in output seconds (0 = no fade); applied to video+audio.
     fade_in: float = PField(default=0.0, ge=0.0, le=30.0)
@@ -80,6 +95,9 @@ class Clip(BaseModel):
             ats = [p.at for p in self.speed_ramp]
             if any(b <= a for a, b in zip(ats, ats[1:])):
                 raise ValueError("speed_ramp points must be strictly ascending")
+        kf_ats = [k.at for k in self.keyframes]
+        if any(b <= a for a, b in zip(kf_ats, kf_ats[1:])):
+            raise ValueError("keyframes must be strictly ascending in `at`")
         return self
 
 

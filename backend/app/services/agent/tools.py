@@ -10,7 +10,9 @@ false + required) so tool inputs are guaranteed to validate.
 import uuid
 from typing import Any
 
-from ...models import CLIP_FILTERS, Clip, MediaAsset, SpeedPoint, TextOverlay, Timeline
+from ...models import (
+    CLIP_FILTERS, Clip, Keyframe, MediaAsset, SpeedPoint, TextOverlay, Timeline,
+)
 
 # --------------------------------------------------------------------------
 # Tool schemas (Anthropic tool-use format, strict)
@@ -130,6 +132,40 @@ TOOLS: list[dict] = [
                 },
             },
             ["clip_id", "points"],
+        ),
+    },
+    {
+        "name": "set_keyframes",
+        "description": (
+            "Animate a clip with transform keyframes: each point {at, scale, "
+            "x, y, rotation} sets the frame's zoom (1.0 = normal), pixel "
+            "offset from the canvas centre (1280x720 canvas) and rotation in "
+            "degrees at `at` seconds into the clip's OUTPUT; values animate "
+            "smoothly (linear) between points. Example slow zoom-in over 5s: "
+            "[{at:0, scale:1, x:0, y:0, rotation:0}, {at:5, scale:1.3, x:0, "
+            "y:0, rotation:0}]. Pass an empty list to remove the animation."
+        ),
+        "strict": True,
+        "input_schema": _schema(
+            {
+                "clip_id": {"type": "string"},
+                "keyframes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "at": {"type": "number", "description": "Seconds into the clip's output"},
+                            "scale": {"type": "number", "description": "Zoom factor, 0.05-5.0 (1.0 = normal)"},
+                            "x": {"type": "number", "description": "Pixel offset from centre, -2000..2000"},
+                            "y": {"type": "number", "description": "Pixel offset from centre, -2000..2000"},
+                            "rotation": {"type": "number", "description": "Degrees, -360..360"},
+                        },
+                        "required": ["at", "scale", "x", "y", "rotation"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            ["clip_id", "keyframes"],
         ),
     },
     {
@@ -312,6 +348,8 @@ class ToolExecutor:
             if c.speed_ramp:
                 ramp = ",".join(f"{p.at:.1f}s:{p.speed}x" for p in c.speed_ramp)
                 extras += f" speed_ramp=[{ramp}]"
+            if c.keyframes:
+                extras += f" keyframes={len(c.keyframes)}"
             lines.append(
                 f"{i}: clip_id={c.id} source='{name}' in={c.start:.2f}s out={end} "
                 f"speed={c.speed}x volume={c.volume} overlays={len(c.overlays)}{extras}"
@@ -423,6 +461,27 @@ class ToolExecutor:
         desc = ", ".join(f"{p.at:.2f}s->{p.speed}x" for p in ramp)
         return f"Clip {clip_id} speed ramp set: {desc}."
 
+    def _tool_set_keyframes(self, clip_id: str, keyframes: list) -> str:
+        clip = self._clip(clip_id)
+        if not keyframes:
+            clip.keyframes = []
+            self.mutated = True
+            return f"Clip {clip_id} keyframe animation removed."
+        try:
+            kfs = [Keyframe.model_validate(k) for k in keyframes]
+        except Exception as exc:
+            raise ValueError(f"Invalid keyframe: {exc}") from exc
+        ats = [k.at for k in kfs]
+        if any(b <= a for a, b in zip(ats, ats[1:])):
+            raise ValueError("Keyframes must be strictly ascending in `at`")
+        clip.keyframes = kfs
+        self.mutated = True
+        desc = "; ".join(
+            f"{k.at:.2f}s scale={k.scale} x={k.x} y={k.y} rot={k.rotation}"
+            for k in kfs
+        )
+        return f"Clip {clip_id} keyframes set: {desc}."
+
     def _tool_set_volume(self, clip_id: str, volume: float) -> str:
         if not 0.0 <= volume <= 5.0:
             raise ValueError("volume must be between 0.0 and 5.0")
@@ -465,6 +524,14 @@ class ToolExecutor:
         # Overlays are clip-relative in output time; hand each to the side it
         # starts on, shifting the second clip's back by the cut offset.
         boundary = _output_time_at(clip, at)
+        # Keyframes are output-time too: each half keeps its side's points.
+        if clip.keyframes:
+            kfs = clip.keyframes
+            clip.keyframes = [k for k in kfs if k.at < boundary]
+            second.keyframes = [
+                k.model_copy(update={"at": k.at - boundary})
+                for k in kfs if k.at >= boundary
+            ]
         first_ov, second_ov = [], []
         for ov in clip.overlays:
             if ov.start < boundary:

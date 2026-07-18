@@ -5,7 +5,9 @@ import { Group, Layer, Rect, Stage, Text } from "react-konva";
 
 import { api } from "@/lib/api";
 import { filterCss } from "@/lib/filters";
-import { clipAtTime, formatTime, timelineDuration } from "@/lib/timeline";
+import {
+  clipAtTime, formatTime, keyframeTransform, timelineDuration,
+} from "@/lib/timeline";
 import type { MediaAsset, Timeline } from "@/lib/types";
 
 // Must match backend OUT_W/OUT_H so overlay positions preview accurately.
@@ -113,6 +115,8 @@ export default function PreviewPlayerInner({
   }, [total, pos]);
 
   const scale = size.w / EXPORT_W;
+  // Mirror the clip's keyframe transform (zoom/pan/rotate) on the <video>.
+  const xf = pos ? keyframeTransform(pos.clip, pos.offsetInClip) : null;
   const visibleOverlays = (pos?.clip.overlays ?? []).filter((o) => {
     const t = pos?.offsetInClip ?? 0;
     return t >= o.start && (o.end == null || t <= o.end);
@@ -140,6 +144,11 @@ export default function PreviewPlayerInner({
             objectFit: "contain",
             // Mirror the clip's colour treatment so the preview matches export.
             filter: filterCss(pos?.clip.filter),
+            // Keyframe transform; x/y are export-canvas pixels, scaled to the
+            // preview size. Rotation before scale matches the export chain.
+            transform: xf
+              ? `translate(${xf.x * scale}px, ${xf.y * scale}px) rotate(${xf.rotation}deg) scale(${xf.scale})`
+              : undefined,
           }}
           muted={pos?.clip.volume === 0}
         />
