@@ -95,6 +95,23 @@ def test_export_clip_with_fade_and_filter_renders(sample_clip, tmp_path):
     assert ff.probe(out).duration == pytest.approx(1.5, abs=0.35)
 
 
+def test_every_filter_preset_has_a_chain():
+    # Every selectable look except "none" must map to an ffmpeg chain.
+    from app.models import CLIP_FILTERS
+    assert set(CLIP_FILTERS) - {"none"} == set(ff._CLIP_FILTERS)
+
+
+@pytest.mark.parametrize("look", ["vivid", "warm", "vintage", "matte", "noir"])
+def test_export_with_preset_look_renders(sample_clip, tmp_path, look):
+    # Real render per preset: proves ffmpeg accepts each chain's syntax
+    # (curves/vignette/colorbalance quoting is easy to get subtly wrong).
+    info = ff.probe(sample_clip)
+    tl = Timeline(clips=[Clip(asset_id="a", start=0.0, end=1.0, filter=look)])
+    out = tmp_path / f"{look}.mp4"
+    ff.export_timeline(tl, {"a": str(sample_clip)}, {"a": info}, out)
+    assert out.stat().st_size > 0
+
+
 def test_export_two_clips_with_overlay_and_silent_source(
     sample_clip, silent_clip, tmp_path
 ):

@@ -21,7 +21,16 @@ export interface TextOverlay {
   end: number | null;
 }
 
-export type ClipFilter = "none" | "grayscale" | "sepia";
+export type ClipFilter =
+  | "none"
+  | "grayscale"
+  | "sepia"
+  | "vivid"
+  | "warm"
+  | "cool"
+  | "vintage"
+  | "matte"
+  | "noir";
 
 export interface Clip {
   id: string;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Group, Layer, Rect, Stage, Text } from "react-konva";
 
 import { api } from "@/lib/api";
+import { filterCss } from "@/lib/filters";
 import { clipAtTime, formatTime, timelineDuration } from "@/lib/timeline";
 import type { MediaAsset, Timeline } from "@/lib/types";
 
@@ -136,12 +137,7 @@ export default function PreviewPlayerInner({
             aspectRatio: "16/9",
             objectFit: "contain",
             // Mirror the clip's colour treatment so the preview matches export.
-            filter:
-              pos?.clip.filter === "grayscale"
-                ? "grayscale(1)"
-                : pos?.clip.filter === "sepia"
-                  ? "sepia(1)"
-                  : undefined,
+            filter: filterCss(pos?.clip.filter),
           }}
           muted={pos?.clip.volume === 0}
         />

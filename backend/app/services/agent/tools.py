@@ -145,8 +145,11 @@ TOOLS: list[dict] = [
     {
         "name": "apply_filter",
         "description": (
-            "Apply a colour treatment to a clip: 'grayscale' (black and "
-            "white), 'sepia', or 'none' to remove it."
+            "Apply a colour look to a clip: 'grayscale' (black and white), "
+            "'sepia', 'vivid' (punchy saturation), 'warm' (golden tint), "
+            "'cool' (blue tint), 'vintage' (faded film + vignette), 'matte' "
+            "(lifted blacks, muted), 'noir' (high-contrast B&W), or 'none' "
+            "to remove it."
         ),
         "strict": True,
         "input_schema": _schema(

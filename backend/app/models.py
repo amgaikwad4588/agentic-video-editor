@@ -39,7 +39,10 @@ class TextOverlay(BaseModel):
     end: float | None = None  # None = until clip end
 
 
-CLIP_FILTERS = ("none", "grayscale", "sepia")
+CLIP_FILTERS = (
+    "none", "grayscale", "sepia",
+    "vivid", "warm", "cool", "vintage", "matte", "noir",
+)
 
 
 class Clip(BaseModel):

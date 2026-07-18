@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { FILTER_LOOKS, FILTER_NAMES } from "@/lib/filters";
 import { clipDuration, formatTime, moveClip } from "@/lib/timeline";
 import type { Clip, MediaAsset, Timeline } from "@/lib/types";
 
@@ -196,9 +197,11 @@ export default function TimelineStrip({
                 value={selected.filter ?? "none"}
                 onChange={(e) => patchSelected({ filter: e.target.value as Clip["filter"] })}
               >
-                <option value="none">Colour</option>
-                <option value="grayscale">B &amp; W</option>
-                <option value="sepia">Sepia</option>
+                {FILTER_NAMES.map((name) => (
+                  <option key={name} value={name}>
+                    {name === "none" ? "Colour" : FILTER_LOOKS[name].label}
+                  </option>
+                ))}
               </select>
             </label>
             <button

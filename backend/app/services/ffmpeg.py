@@ -190,13 +190,21 @@ def _clip_duration(clip: Clip, source_duration: float | None) -> float:
 
 
 # Colour treatments selectable per clip (Clip.filter). Grayscale drops
-# saturation; sepia is the standard luma-weighted colour mix.
+# saturation; sepia is the standard luma-weighted colour mix. The preset pack
+# below mirrors the look names in frontend/lib/filters.ts (CSS approximations)
+# - keep both sides in sync when adding a look.
 _CLIP_FILTERS = {
     "grayscale": "hue=s=0",
     "sepia": (
         "colorchannelmixer="
         ".393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0"
     ),
+    "vivid": "eq=saturation=1.45:contrast=1.08",
+    "warm": "colorbalance=rs=.13:gs=.02:bs=-.13,eq=saturation=1.1",
+    "cool": "colorbalance=rs=-.12:bs=.12,eq=saturation=1.05",
+    "vintage": "curves=preset=vintage,vignette=PI/5",
+    "matte": "curves=all='0/0.06 0.5/0.5 1/0.94',eq=saturation=0.85",
+    "noir": "hue=s=0,eq=contrast=1.35:brightness=0.02",
 }
 
 
