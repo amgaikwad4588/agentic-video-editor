@@ -39,9 +39,15 @@ export function clipDuration(clip: Clip, assets: Map<string, MediaAsset>): numbe
   );
 }
 
-/** Total output duration of the timeline. */
+/** Clips on the main sequential track (track 0). Overlay/PiP clips (track
+ * 1-3) are composited at their own `offset` and do not add to the length. */
+export function mainClips(tl: Timeline): Clip[] {
+  return tl.clips.filter((c) => (c.track ?? 0) === 0);
+}
+
+/** Total output duration of the timeline (main track only). */
 export function timelineDuration(tl: Timeline, assets: Map<string, MediaAsset>): number {
-  return tl.clips.reduce((sum, c) => sum + clipDuration(c, assets), 0);
+  return mainClips(tl).reduce((sum, c) => sum + clipDuration(c, assets), 0);
 }
 
 export interface PlayheadPosition {
@@ -82,11 +88,12 @@ export function clipAtTime(
   assets: Map<string, MediaAsset>,
   t: number,
 ): PlayheadPosition | null {
+  const clips = mainClips(tl);
   let acc = 0;
-  for (let i = 0; i < tl.clips.length; i++) {
-    const clip = tl.clips[i];
+  for (let i = 0; i < clips.length; i++) {
+    const clip = clips[i];
     const dur = clipDuration(clip, assets);
-    if (t < acc + dur || i === tl.clips.length - 1 && t <= acc + dur + 1e-6) {
+    if (t < acc + dur || i === clips.length - 1 && t <= acc + dur + 1e-6) {
       const offset = Math.min(Math.max(0, t - acc), dur);
       return {
         clip,
@@ -100,13 +107,13 @@ export function clipAtTime(
   return null;
 }
 
-/** Start time of clip `index` on the output timeline. */
+/** Start time of main-track clip `index` on the output timeline. */
 export function clipStartTime(
   tl: Timeline,
   assets: Map<string, MediaAsset>,
   index: number,
 ): number {
-  return tl.clips
+  return mainClips(tl)
     .slice(0, index)
     .reduce((sum, c) => sum + clipDuration(c, assets), 0);
 }

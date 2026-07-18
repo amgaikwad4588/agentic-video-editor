@@ -157,6 +157,29 @@ def test_split_clip_distributes_keyframes():
     assert [k.at for k in second.keyframes] == [4.0]  # 8.0 shifted by the cut
 
 
+def test_add_pip_clip_validates_and_applies():
+    ex = ToolExecutor(Timeline(), make_assets())
+    ex.execute("add_pip_clip", {
+        "asset_id": "a2", "track": 1, "offset": 3.0, "start": 0.0, "end": 4.0,
+        "scale": 0.35, "x": 380, "y": -180,
+    })
+    clip = ex.timeline.clips[0]
+    assert clip.track == 1 and clip.offset == 3.0
+    assert clip.keyframes[0].scale == 0.35
+    assert "track=1" in ex.execute("get_timeline", {})
+
+    with pytest.raises(ValueError, match="track must be"):
+        ex.execute("add_pip_clip", {
+            "asset_id": "a2", "track": 0, "offset": 0, "start": 0, "end": None,
+            "scale": 1.0, "x": 0, "y": 0,
+        })
+    # No speed ramps on overlay clips.
+    with pytest.raises(ValueError, match="not support speed ramps"):
+        ex.execute("set_speed_ramp", {
+            "clip_id": clip.id, "points": [{"at": 0, "speed": 2.0}],
+        })
+
+
 def test_overlay_vertical_positions():
     tl = Timeline(clips=[Clip(id="c1", asset_id="a1")])
     ex = ToolExecutor(tl, make_assets())

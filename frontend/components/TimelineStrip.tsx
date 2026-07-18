@@ -143,6 +143,19 @@ export default function TimelineStrip({
                 }
               />
             </label>
+            {(selected.track ?? 0) > 0 && (
+              <label title="Where this overlay appears on the output timeline">
+                At{" "}
+                <input
+                  style={{ width: 64, padding: "2px 6px" }}
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={selected.offset ?? 0}
+                  onChange={(e) => patchSelected({ offset: Math.max(0, Number(e.target.value) || 0) })}
+                />
+              </label>
+            )}
             <label
               title={
                 (selected.speed_ramp?.length ?? 0) > 0
@@ -227,8 +240,35 @@ export default function TimelineStrip({
         )}
       </div>
 
+      {timeline.clips.some((c) => (c.track ?? 0) > 0) && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", margin: "6px 0" }}>
+          <span className="overline" style={{ fontSize: 11 }}>Overlays</span>
+          {timeline.clips
+            .filter((c) => (c.track ?? 0) > 0)
+            .map((clip) => {
+              const asset = assets.get(clip.asset_id);
+              const dur = clipDuration(clip, assets);
+              return (
+                <button
+                  key={clip.id}
+                  className={clip.id === selectedClipId ? "selected" : ""}
+                  style={{ fontSize: 12, padding: "2px 8px" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(clip.id);
+                  }}
+                  title={`Track ${clip.track} picture-in-picture, shown at ${formatTime(clip.offset)} for ${formatTime(dur)}`}
+                >
+                  ◱ {asset?.filename ?? clip.asset_id} @ {formatTime(clip.offset)}
+                </button>
+              );
+            })}
+        </div>
+      )}
+
       <div className="clip-strip" onClick={() => onSelect(null)}>
         {timeline.clips.map((clip, i) => {
+          if ((clip.track ?? 0) > 0) return null;
           const asset = assets.get(clip.asset_id);
           const eff = draft?.clipId === clip.id ? draft : null;
           const shown = eff ? { ...clip, start: eff.start, end: eff.end } : clip;

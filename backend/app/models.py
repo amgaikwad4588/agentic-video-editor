@@ -68,6 +68,11 @@ class Clip(BaseModel):
     """One segment on the timeline referencing a source asset."""
     id: str = PField(default_factory=_id)
     asset_id: str
+    # Track 0 is the main sequential timeline; tracks 1-3 are overlay (PiP)
+    # layers composited on top, placed at `offset` seconds on the output
+    # timeline (offset is ignored for track 0).
+    track: int = PField(default=0, ge=0, le=3)
+    offset: float = PField(default=0.0, ge=0)
     # Source in/out points in seconds. end=None means natural end of asset.
     start: float = PField(default=0.0, ge=0)
     end: float | None = None
@@ -98,6 +103,8 @@ class Clip(BaseModel):
         kf_ats = [k.at for k in self.keyframes]
         if any(b <= a for a, b in zip(kf_ats, kf_ats[1:])):
             raise ValueError("keyframes must be strictly ascending in `at`")
+        if self.track > 0 and self.speed_ramp:
+            raise ValueError("speed ramps are not supported on overlay tracks")
         return self
 
 

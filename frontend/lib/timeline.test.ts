@@ -13,7 +13,8 @@ const asset = (id: string, duration: number): MediaAsset => ({
 
 const clip = (over: Partial<Clip>): Clip => ({
   id: Math.random().toString(36).slice(2),
-  asset_id: "a", start: 0, end: null, speed: 1, speed_ramp: [], keyframes: [],
+  asset_id: "a", track: 0, offset: 0, start: 0, end: null,
+  speed: 1, speed_ramp: [], keyframes: [],
   volume: 1, fade_in: 0, fade_out: 0, filter: "none", overlays: [],
   ...over,
 });
@@ -44,6 +45,16 @@ describe("timelineDuration", () => {
   });
   it("is 0 for an empty timeline", () => {
     expect(timelineDuration({ clips: [] }, assets)).toBe(0);
+  });
+  it("ignores overlay (PiP) clips", () => {
+    const tl: Timeline = {
+      clips: [
+        clip({ start: 0, end: 10 }),
+        clip({ track: 1, offset: 2, start: 0, end: 5 }),
+      ],
+    };
+    expect(timelineDuration(tl, assets)).toBe(10);
+    expect(clipAtTime(tl, assets, 3)!.clip.track).toBe(0);
   });
 });
 

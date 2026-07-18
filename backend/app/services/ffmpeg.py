@@ -265,8 +265,17 @@ def build_export_command(
 
     Returns (argv, expected_output_duration_seconds).
     """
-    if not timeline.clips:
-        raise FFmpegError("Timeline is empty - nothing to export")
+    main_clips = [c for c in timeline.clips if c.track == 0]
+    pip_clips = sorted(
+        (c for c in timeline.clips if c.track > 0),
+        key=lambda c: (c.track, c.offset),
+    )
+    if not main_clips:
+        raise FFmpegError(
+            "Timeline is empty - nothing to export"
+            if not timeline.clips
+            else "No main-track clips - overlay clips need a track-0 base"
+        )
 
     ffmpeg = resolve_ffmpeg()
     font = _escape_path(resolve_font())
@@ -278,7 +287,7 @@ def build_export_command(
     total_duration = 0.0
 
     seg_idx = 0  # one ffmpeg input per constant-speed segment
-    for clip in timeline.clips:
+    for clip in main_clips:
         src = asset_paths.get(clip.asset_id)
         info = asset_info.get(clip.asset_id)
         if src is None or info is None:
@@ -404,7 +413,87 @@ def build_export_command(
             concat_refs.append(f"[v{i}][a{i}]")
             seg_out_start += seg_out
 
-    filters.append(f"{''.join(concat_refs)}concat=n={seg_idx}:v=1:a=1[vout][aout]")
+    vmain, amain = ("[vmain]", "[amain]") if pip_clips else ("[vout]", "[aout]")
+    filters.append(
+        f"{''.join(concat_refs)}concat=n={seg_idx}:v=1:a=1{vmain}{amain}"
+    )
+
+    # ---- overlay (PiP) tracks: composite over the main programme ---------
+    cur_v = vmain
+    mix_refs = [amain]
+    for k, clip in enumerate(pip_clips):
+        src = asset_paths.get(clip.asset_id)
+        info = asset_info.get(clip.asset_id)
+        if src is None or info is None:
+            raise FFmpegError(f"Clip {clip.id}: unknown asset {clip.asset_id}")
+        end = clip.end if clip.end is not None else (info.duration or 0.0)
+        if end <= clip.start:
+            raise FFmpegError(f"Clip {clip.id}: end ({end}) must be after start ({clip.start})")
+        out_dur = (end - clip.start) / clip.speed
+        off = clip.offset
+        i = seg_idx
+        seg_idx += 1
+        inputs += ["-i", src]
+
+        # PiP video: trim -> speed -> fit inside the canvas WITHOUT padding
+        # (pad bars would obscure the main track), alpha format so a rotate
+        # can fill transparent. PTS shifted by `offset` so the overlay filter
+        # pulls frames at the right main-timeline moment.
+        kfs = clip.keyframes
+        tv = f"(t-{off:.4f})"
+        v = (
+            f"[{i}:v]trim=start={clip.start}:end={end},"
+            f"setpts=(PTS-STARTPTS)/{clip.speed}+{off:.4f}/TB,"
+            f"scale={OUT_W}:{OUT_H}:force_original_aspect_ratio=decrease,"
+            f"format=yuva420p"
+        )
+        if clip.filter in _CLIP_FILTERS:
+            v += "," + _CLIP_FILTERS[clip.filter]
+        if clip.fade_in > 0:
+            d = min(clip.fade_in, out_dur)
+            v += f",fade=t=in:st={off:.4f}:d={d:.4f}:alpha=1"
+        if clip.fade_out > 0:
+            d = min(clip.fade_out, out_dur)
+            v += f",fade=t=out:st={off + out_dur - d:.4f}:d={d:.4f}:alpha=1"
+        if kfs and any(kf.rotation for kf in kfs):
+            r = _lerp_expr([(kf.at, kf.rotation) for kf in kfs], tv)
+            v += f",rotate=a='({r})*PI/180':fillcolor=none"
+        if kfs:
+            sc = _lerp_expr([(kf.at, kf.scale) for kf in kfs], tv)
+            v += (
+                f",scale=w='trunc(iw*({sc})/2)*2'"
+                f":h='trunc(ih*({sc})/2)*2':eval=frame"
+            )
+        v += f"[pv{k}]"
+        filters.append(v)
+
+        x = _lerp_expr([(kf.at, kf.x) for kf in kfs], tv) if kfs else "0"
+        y = _lerp_expr([(kf.at, kf.y) for kf in kfs], tv) if kfs else "0"
+        nxt = "[vout]" if k == len(pip_clips) - 1 else f"[vo{k}]"
+        filters.append(
+            f"{cur_v}[pv{k}]overlay=x='(W-w)/2+({x})':y='(H-h)/2+({y})'"
+            f":enable='between(t,{off:.4f},{off + out_dur:.4f})'{nxt}"
+        )
+        cur_v = nxt
+
+        if info.has_audio and clip.volume > 0:
+            filters.append(
+                f"[{i}:a]atrim=start={clip.start}:end={end},"
+                f"asetpts=PTS-STARTPTS,{_atempo_chain(clip.speed)},"
+                f"volume={clip.volume},"
+                f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
+                f"adelay={int(off * 1000)}:all=1[pa{k}]"
+            )
+            mix_refs.append(f"[pa{k}]")
+
+    if pip_clips:
+        if len(mix_refs) == 1:
+            filters.append(f"{amain}acopy[aout]")
+        else:
+            filters.append(
+                f"{''.join(mix_refs)}amix=inputs={len(mix_refs)}"
+                f":duration=first:normalize=0[aout]"
+            )
 
     argv = [
         ffmpeg, "-y", *inputs,

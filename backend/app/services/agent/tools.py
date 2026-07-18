@@ -67,6 +67,31 @@ TOOLS: list[dict] = [
         ),
     },
     {
+        "name": "add_pip_clip",
+        "description": (
+            "Add a picture-in-picture overlay clip on a track above the main "
+            "timeline. `offset` places it in seconds on the OUTPUT timeline; "
+            "`scale`/`x`/`y` set its size (e.g. 0.35 for a corner PiP) and "
+            "pixel offset from the canvas centre (1280x720). For an animated "
+            "PiP, add it first and then call set_keyframes on it. Overlay "
+            "clips do not support speed ramps."
+        ),
+        "strict": True,
+        "input_schema": _schema(
+            {
+                "asset_id": {"type": "string", "description": "Id from list_assets"},
+                "track": {"type": "integer", "description": "Overlay layer, 1-3 (higher renders on top)"},
+                "offset": {"type": "number", "description": "Start position on the output timeline, seconds"},
+                "start": {"type": "number", "description": "Source in-point, seconds"},
+                "end": {"type": ["number", "null"], "description": "Source out-point, seconds"},
+                "scale": {"type": "number", "description": "Size factor, 0.05-5.0 (0.35 = typical corner PiP)"},
+                "x": {"type": "number", "description": "Pixel offset from centre, -2000..2000 (negative = left)"},
+                "y": {"type": "number", "description": "Pixel offset from centre, -2000..2000 (negative = up)"},
+            },
+            ["asset_id", "track", "offset", "start", "end", "scale", "x", "y"],
+        ),
+    },
+    {
         "name": "trim_clip",
         "description": "Change a clip's source in/out points (seconds).",
         "strict": True,
@@ -350,6 +375,8 @@ class ToolExecutor:
                 extras += f" speed_ramp=[{ramp}]"
             if c.keyframes:
                 extras += f" keyframes={len(c.keyframes)}"
+            if c.track > 0:
+                extras += f" track={c.track} offset={c.offset:.2f}s (overlay/PiP)"
             lines.append(
                 f"{i}: clip_id={c.id} source='{name}' in={c.start:.2f}s out={end} "
                 f"speed={c.speed}x volume={c.volume} overlays={len(c.overlays)}{extras}"
@@ -395,6 +422,31 @@ class ToolExecutor:
         self.mutated = True
         return f"Added clip {clip.id} at position {idx}.\n{self._describe_timeline()}"
 
+    def _tool_add_pip_clip(self, asset_id: str, track: int, offset: float,
+                           start: float, end: float | None,
+                           scale: float, x: float, y: float) -> str:
+        asset = self.assets.get(asset_id)
+        if asset is None:
+            raise ValueError(f"No asset '{asset_id}'. Available: {list(self.assets)}")
+        if not 1 <= track <= 3:
+            raise ValueError("track must be 1-3 for overlay clips")
+        if offset < 0:
+            raise ValueError("offset must be >= 0")
+        if end is not None and end <= start:
+            raise ValueError("end must be greater than start")
+        if asset.duration is not None and start >= asset.duration:
+            raise ValueError(f"start {start}s is beyond asset duration {asset.duration}s")
+        clip = Clip(
+            asset_id=asset_id, track=track, offset=offset, start=start, end=end,
+            keyframes=[Keyframe(at=0.0, scale=scale, x=x, y=y, rotation=0.0)],
+        )
+        self.timeline.clips.append(clip)
+        self.mutated = True
+        return (
+            f"Added overlay clip {clip.id} on track {track} at {offset:.2f}s "
+            f"(scale {scale}, offset {x:+.0f},{y:+.0f}).\n{self._describe_timeline()}"
+        )
+
     def _tool_trim_clip(self, clip_id: str, start: float, end: float) -> str:
         if end <= start:
             raise ValueError("end must be greater than start")
@@ -433,6 +485,8 @@ class ToolExecutor:
 
     def _tool_set_speed_ramp(self, clip_id: str, points: list) -> str:
         clip = self._clip(clip_id)
+        if clip.track > 0:
+            raise ValueError("Overlay (PiP) clips do not support speed ramps")
         if not points:
             clip.speed_ramp = []
             self.mutated = True

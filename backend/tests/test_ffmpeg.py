@@ -179,6 +179,56 @@ def test_export_with_preset_look_renders(sample_clip, tmp_path, look):
     assert out.stat().st_size > 0
 
 
+def test_export_with_pip_overlay_renders(sample_clip, silent_clip, tmp_path):
+    from app.models import Keyframe
+    info_a = ff.probe(sample_clip)
+    info_b = ff.probe(silent_clip)
+    tl = Timeline(clips=[
+        Clip(asset_id="a", start=0.0, end=2.0),
+        Clip(
+            asset_id="b", track=1, offset=0.5, start=0.0, end=1.0,
+            keyframes=[Keyframe(at=0.0, scale=0.35, x=380, y=-180, rotation=0)],
+        ),
+    ])
+    out = tmp_path / "pip.mp4"
+    argv, expected = ff.build_export_command(
+        tl, {"a": str(sample_clip), "b": str(silent_clip)},
+        {"a": info_a, "b": info_b}, out,
+    )
+    graph = argv[argv.index("-filter_complex") + 1]
+    assert "overlay=x=" in graph
+    # PiP does not extend the programme: expected duration is the main track's.
+    assert expected == pytest.approx(2.0)
+    ff.export_timeline(
+        tl, {"a": str(sample_clip), "b": str(silent_clip)},
+        {"a": info_a, "b": info_b}, out,
+    )
+    rendered = ff.probe(out)
+    assert rendered.duration == pytest.approx(2.0, abs=0.35)
+    assert rendered.has_audio
+
+
+def test_export_pip_with_audio_mixes(sample_clip, tmp_path):
+    # Both layers have audio -> amix path.
+    info = ff.probe(sample_clip)
+    tl = Timeline(clips=[
+        Clip(asset_id="a", start=0.0, end=2.0),
+        Clip(asset_id="a", track=1, offset=0.0, start=0.0, end=1.0, volume=0.5),
+    ])
+    out = tmp_path / "pipmix.mp4"
+    argv, _ = ff.build_export_command(tl, {"a": str(sample_clip)}, {"a": info}, out)
+    graph = argv[argv.index("-filter_complex") + 1]
+    assert "amix=inputs=2" in graph and "adelay=" in graph
+    ff.export_timeline(tl, {"a": str(sample_clip)}, {"a": info}, out)
+    assert out.stat().st_size > 0
+
+
+def test_overlay_only_timeline_fails():
+    tl = Timeline(clips=[Clip(asset_id="a", track=1)])
+    with pytest.raises(ff.FFmpegError, match="main-track"):
+        ff.build_export_command(tl, {}, {}, "out.mp4")
+
+
 def test_export_two_clips_with_overlay_and_silent_source(
     sample_clip, silent_clip, tmp_path
 ):

@@ -53,6 +53,10 @@ export interface Keyframe {
 export interface Clip {
   id: string;
   asset_id: string;
+  /** 0 = main sequential track; 1-3 = overlay (PiP) layers. */
+  track: number;
+  /** Placement on the output timeline in seconds (overlay tracks only). */
+  offset: number;
   start: number;
   end: number | null;
   speed: number;

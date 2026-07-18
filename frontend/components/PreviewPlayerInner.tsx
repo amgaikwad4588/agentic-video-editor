@@ -6,7 +6,7 @@ import { Group, Layer, Rect, Stage, Text } from "react-konva";
 import { api } from "@/lib/api";
 import { filterCss } from "@/lib/filters";
 import {
-  clipAtTime, formatTime, keyframeTransform, timelineDuration,
+  clipAtTime, clipDuration, formatTime, keyframeTransform, timelineDuration,
 } from "@/lib/timeline";
 import type { MediaAsset, Timeline } from "@/lib/types";
 
@@ -117,6 +117,30 @@ export default function PreviewPlayerInner({
   const scale = size.w / EXPORT_W;
   // Mirror the clip's keyframe transform (zoom/pan/rotate) on the <video>.
   const xf = pos ? keyframeTransform(pos.clip, pos.offsetInClip) : null;
+
+  // Overlay (PiP) clips: one absolutely-positioned <video> each, shown while
+  // the playhead is inside [offset, offset + duration).
+  const pipClips = timeline.clips.filter((c) => (c.track ?? 0) > 0);
+  const pipRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  useEffect(() => {
+    for (const c of pipClips) {
+      const el = pipRefs.current.get(c.id);
+      if (!el) continue;
+      const dur = clipDuration(c, assets);
+      const off = c.offset ?? 0;
+      if (playhead < off || playhead >= off + dur) {
+        if (!el.paused) el.pause();
+        continue;
+      }
+      const srcT = c.start + (playhead - off) * c.speed;
+      if (Math.abs(el.currentTime - srcT) > 0.3) el.currentTime = srcT;
+      el.playbackRate = c.speed;
+      el.volume = Math.min(1, c.volume);
+      if (playing && el.paused) el.play().catch(() => {});
+      if (!playing && !el.paused) el.pause();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playhead, playing, timeline, assets]);
   const visibleOverlays = (pos?.clip.overlays ?? []).filter((o) => {
     const t = pos?.offsetInClip ?? 0;
     return t >= o.start && (o.end == null || t <= o.end);
@@ -152,6 +176,38 @@ export default function PreviewPlayerInner({
           }}
           muted={pos?.clip.volume === 0}
         />
+        {/* Overlay (PiP) tracks, composited like the export's overlay filter */}
+        {pipClips.map((c) => {
+          const dur = clipDuration(c, assets);
+          const off = c.offset ?? 0;
+          const active = playhead >= off && playhead < off + dur;
+          const pxf = keyframeTransform(c, playhead - off);
+          return (
+            <video
+              key={c.id}
+              ref={(el) => {
+                if (el) pipRefs.current.set(c.id, el);
+                else pipRefs.current.delete(c.id);
+              }}
+              src={api.mediaFileUrl(c.asset_id)}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: active ? "block" : "none",
+                pointerEvents: "none",
+                filter: filterCss(c.filter),
+                transform: pxf
+                  ? `translate(${pxf.x * scale}px, ${pxf.y * scale}px) rotate(${pxf.rotation}deg) scale(${pxf.scale})`
+                  : undefined,
+              }}
+              muted={c.volume === 0}
+              preload="auto"
+            />
+          );
+        })}
         {/* Konva layer mirrors what drawtext will burn in at export */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
           <Stage width={size.w} height={size.h}>

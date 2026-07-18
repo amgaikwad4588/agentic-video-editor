@@ -1,6 +1,39 @@
 # Project State — Checkpoint
 
-_Last updated: 2026-07-15 (export UX + trim handles stage)._
+_Last updated: 2026-07-18 (VN-parity editing features)._
+
+## Stage: VN-style editing feature pack (2026-07-18) — done, tested, pushed
+
+Four stages, each committed+pushed separately, inspired by the VN mobile
+editor's feature set:
+
+1. **Colour look presets** (`e2e4829`): filter list grew from
+   grayscale/sepia to vivid, warm, cool, vintage, matte, noir. ffmpeg chains
+   in `_CLIP_FILTERS` mirrored by CSS approximations in
+   `frontend/lib/filters.ts` (keep in sync). Every preset render-tested.
+2. **Speed ramps** (`6dac16b`): `Clip.speed_ramp` = piecewise-constant
+   [{at, speed}] points (source-relative, first at=0, ascending); non-empty
+   overrides `speed`. Export expands each clip into one trim/setpts chain
+   per constant-speed segment. Agent tool `set_speed_ramp`; `set_speed` and
+   the inspector's Speed input clear the ramp; `split_clip` splits it.
+3. **Transform keyframes** (`f96ccfd`): `Clip.keyframes` =
+   [{at, scale, x, y, rotation}] in clip OUTPUT seconds, linear interp via
+   generated ffmpeg expressions (`_lerp_expr`), composited on a black canvas.
+   Preview mirrors with a CSS transform. Agent tool `set_keyframes`.
+   **Required ffmpeg >= 5 -> imageio-ffmpeg pinned 0.6.0 (bundles 7.1)**,
+   which surfaced two ffmpeg-7 parser regressions (ERRORS #19/#20): path
+   options must be quoted+escaped, and overlay text now goes through
+   drawtext `textfile=` sidecar files (no inline text escaping at all).
+4. **Multi-track PiP** (this stage): `Clip.track` 0-3 + `Clip.offset`.
+   Track 0 concats as before; tracks 1-3 composite via overlay (scale
+   without pad, alpha, keyframable transform, adelay+amix audio,
+   normalize=0). No speed ramps on overlay clips (validator + tool guard).
+   Agent tool `add_pip_clip` (creates a single positioning keyframe).
+   Preview renders one absolute <video> per PiP clip; timeline math
+   (duration/playhead) counts only track 0; TimelineStrip shows an
+   "Overlays" chip row with an At-offset inspector field.
+
+Tests after all four: backend 65/65, frontend 23/23, `next build` exit 0.
 
 ## Stage: export reliability + direct-manipulation trimming (2026-07-15, later)
 

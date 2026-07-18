@@ -96,6 +96,8 @@ export default function EditorPage({
               const clip = {
                 id: crypto.randomUUID().replace(/-/g, ""),
                 asset_id: assetId,
+                track: 0,
+                offset: 0,
                 start: 0,
                 end: null,
                 speed: 1,
