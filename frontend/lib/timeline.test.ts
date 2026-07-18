@@ -12,7 +12,7 @@ const asset = (id: string, duration: number): MediaAsset => ({
 
 const clip = (over: Partial<Clip>): Clip => ({
   id: Math.random().toString(36).slice(2),
-  asset_id: "a", start: 0, end: null, speed: 1, volume: 1,
+  asset_id: "a", start: 0, end: null, speed: 1, speed_ramp: [], volume: 1,
   fade_in: 0, fade_out: 0, filter: "none", overlays: [],
   ...over,
 });
@@ -73,6 +73,36 @@ describe("clipAtTime", () => {
 
   it("returns null for an empty timeline", () => {
     expect(clipAtTime({ clips: [] }, assets, 0)).toBeNull();
+  });
+});
+
+describe("speed ramps", () => {
+  // 0-10s source: 0-4s at 1x (4s out), 4-10s at 2x (3s out) => 7s output.
+  const ramped = clip({
+    id: "r1", start: 0, end: 10,
+    speed_ramp: [{ at: 0, speed: 1 }, { at: 4, speed: 2 }],
+  });
+
+  it("clipDuration sums ramp segments", () => {
+    expect(clipDuration(ramped, assets)).toBe(7);
+  });
+
+  it("clipAtTime maps source time through the active segment", () => {
+    const tl: Timeline = { clips: [ramped] };
+    const early = clipAtTime(tl, assets, 2)!;
+    expect(early.sourceTime).toBe(2);
+    expect(early.speed).toBe(1);
+    const late = clipAtTime(tl, assets, 5)!; // 1s into the 2x segment
+    expect(late.sourceTime).toBe(6); // 4 + 1*2
+    expect(late.speed).toBe(2);
+  });
+
+  it("ignores ramp points beyond the clip's out-point", () => {
+    const c = clip({
+      start: 0, end: 5,
+      speed_ramp: [{ at: 0, speed: 1 }, { at: 8, speed: 4 }],
+    });
+    expect(clipDuration(c, assets)).toBe(5);
   });
 });
 

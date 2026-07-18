@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic import BaseModel, Field as PField
+from pydantic import BaseModel, Field as PField, model_validator
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -45,6 +45,13 @@ CLIP_FILTERS = (
 )
 
 
+class SpeedPoint(BaseModel):
+    """One point of a speed ramp: from `at` (source seconds after the clip's
+    in-point) onward, play at `speed` until the next point."""
+    at: float = PField(ge=0)
+    speed: float = PField(gt=0.09, lt=10.1)
+
+
 class Clip(BaseModel):
     """One segment on the timeline referencing a source asset."""
     id: str = PField(default_factory=_id)
@@ -53,6 +60,10 @@ class Clip(BaseModel):
     start: float = PField(default=0.0, ge=0)
     end: float | None = None
     speed: float = PField(default=1.0, gt=0.09, lt=10.1)
+    # Speed ramp (VN-style velocity): piecewise-constant speed segments.
+    # Non-empty overrides `speed`; first point must be at=0, points strictly
+    # ascending.
+    speed_ramp: list[SpeedPoint] = PField(default_factory=list)
     volume: float = PField(default=1.0, ge=0.0, le=5.0)
     # Fade durations in output seconds (0 = no fade); applied to video+audio.
     fade_in: float = PField(default=0.0, ge=0.0, le=30.0)
@@ -60,6 +71,16 @@ class Clip(BaseModel):
     # Colour treatment burned in at export and mirrored in the preview.
     filter: str = PField(default="none", pattern=f"^({'|'.join(CLIP_FILTERS)})$")
     overlays: list[TextOverlay] = PField(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check_ramp(self) -> "Clip":
+        if self.speed_ramp:
+            if self.speed_ramp[0].at != 0:
+                raise ValueError("speed_ramp must start with a point at=0")
+            ats = [p.at for p in self.speed_ramp]
+            if any(b <= a for a, b in zip(ats, ats[1:])):
+                raise ValueError("speed_ramp points must be strictly ascending")
+        return self
 
 
 class Timeline(BaseModel):

@@ -143,7 +143,13 @@ export default function TimelineStrip({
                 }
               />
             </label>
-            <label>
+            <label
+              title={
+                (selected.speed_ramp?.length ?? 0) > 0
+                  ? "This clip has a speed ramp; editing the speed here removes it. Ask the assistant to adjust the ramp."
+                  : undefined
+              }
+            >
               Speed{" "}
               <input
                 style={{ width: 52, padding: "2px 6px" }}
@@ -152,7 +158,11 @@ export default function TimelineStrip({
                 max={10}
                 step={0.1}
                 value={selected.speed}
-                onChange={(e) => patchSelected({ speed: Number(e.target.value) || 1 })}
+                onChange={(e) =>
+                  // Manually setting a constant speed clears any ramp, same
+                  // as the agent's set_speed tool.
+                  patchSelected({ speed: Number(e.target.value) || 1, speed_ramp: [] })
+                }
               />
             </label>
             <label>
@@ -250,7 +260,13 @@ export default function TimelineStrip({
               </div>
               <div className="meta">{formatTime(dur)}</div>
               <div className="badges">
-                {clip.speed !== 1 && <span>⚡{clip.speed}x </span>}
+                {(clip.speed_ramp?.length ?? 0) > 0 ? (
+                  <span title={clip.speed_ramp.map((p) => `${p.at}s→${p.speed}x`).join(", ")}>
+                    ⚡ramp{" "}
+                  </span>
+                ) : (
+                  clip.speed !== 1 && <span>⚡{clip.speed}x </span>
+                )}
                 {clip.volume !== 1 && <span>🔊{clip.volume} </span>}
                 {clip.overlays.length > 0 && <span>💬{clip.overlays.length} </span>}
                 {(clip.fade_in > 0 || clip.fade_out > 0) && <span>◐fade </span>}

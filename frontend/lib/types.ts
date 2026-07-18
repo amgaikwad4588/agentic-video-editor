@@ -32,12 +32,21 @@ export type ClipFilter =
   | "matte"
   | "noir";
 
+/** One speed-ramp point: from `at` (source seconds after the clip's
+ * in-point) onward, play at `speed` until the next point. */
+export interface SpeedPoint {
+  at: number;
+  speed: number;
+}
+
 export interface Clip {
   id: string;
   asset_id: string;
   start: number;
   end: number | null;
   speed: number;
+  /** Non-empty overrides `speed` (piecewise-constant velocity curve). */
+  speed_ramp: SpeedPoint[];
   volume: number;
   fade_in: number;
   fade_out: number;

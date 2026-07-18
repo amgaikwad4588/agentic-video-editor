@@ -95,6 +95,30 @@ def test_export_clip_with_fade_and_filter_renders(sample_clip, tmp_path):
     assert ff.probe(out).duration == pytest.approx(1.5, abs=0.35)
 
 
+def test_clip_segments_expand_a_speed_ramp():
+    from app.models import SpeedPoint
+    clip = Clip(
+        asset_id="a", start=1.0, end=7.0,
+        speed_ramp=[SpeedPoint(at=0, speed=1.0), SpeedPoint(at=2, speed=2.0)],
+    )
+    assert ff._clip_segments(clip, None) == [(1.0, 3.0, 1.0), (3.0, 7.0, 2.0)]
+    # 2s at 1x + 4s at 2x
+    assert ff._clip_duration(clip, None) == pytest.approx(4.0)
+
+
+def test_export_with_speed_ramp_renders(sample_clip, tmp_path):
+    from app.models import SpeedPoint
+    info = ff.probe(sample_clip)
+    # 0-1s at 1x (1s out) + 1-2s at 2x (0.5s out) => 1.5s output.
+    tl = Timeline(clips=[Clip(
+        asset_id="a", start=0.0, end=2.0,
+        speed_ramp=[SpeedPoint(at=0, speed=1.0), SpeedPoint(at=1, speed=2.0)],
+    )])
+    out = tmp_path / "ramp.mp4"
+    ff.export_timeline(tl, {"a": str(sample_clip)}, {"a": info}, out)
+    assert ff.probe(out).duration == pytest.approx(1.5, abs=0.35)
+
+
 def test_every_filter_preset_has_a_chain():
     # Every selectable look except "none" must map to an ffmpeg chain.
     from app.models import CLIP_FILTERS

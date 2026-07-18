@@ -99,6 +99,7 @@ export default function EditorPage({
                 start: 0,
                 end: null,
                 speed: 1,
+                speed_ramp: [],
                 volume: 1,
                 fade_in: 0,
                 fade_out: 0,

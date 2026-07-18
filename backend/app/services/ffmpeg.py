@@ -184,9 +184,33 @@ def _atempo_chain(speed: float) -> str:
     return ",".join(parts)
 
 
-def _clip_duration(clip: Clip, source_duration: float | None) -> float:
+def _clip_segments(
+    clip: Clip, source_duration: float | None
+) -> list[tuple[float, float, float]]:
+    """Constant-speed (src_start, src_end, speed) pieces of a clip.
+
+    A clip without a ramp is one segment at clip.speed; a speed ramp yields
+    one segment per ramp point. Each segment renders as its own trim/setpts
+    chain so any speed profile works with plain concat.
+    """
     end = clip.end if clip.end is not None else (source_duration or 0.0)
-    return max(0.0, (end - clip.start) / clip.speed)
+    if not clip.speed_ramp:
+        return [(clip.start, end, clip.speed)]
+    pts = [p for p in clip.speed_ramp if clip.start + p.at < end]
+    segs: list[tuple[float, float, float]] = []
+    for j, p in enumerate(pts):
+        s = clip.start + p.at
+        e = min(end, clip.start + pts[j + 1].at) if j + 1 < len(pts) else end
+        if e > s:
+            segs.append((s, e, p.speed))
+    return segs or [(clip.start, end, clip.speed)]
+
+
+def _clip_duration(clip: Clip, source_duration: float | None) -> float:
+    return sum(
+        max(0.0, (e - s) / sp)
+        for s, e, sp in _clip_segments(clip, source_duration)
+    )
 
 
 # Colour treatments selectable per clip (Clip.filter). Grayscale drops
@@ -206,19 +230,6 @@ _CLIP_FILTERS = {
     "matte": "curves=all='0/0.06 0.5/0.5 1/0.94',eq=saturation=0.85",
     "noir": "hue=s=0,eq=contrast=1.35:brightness=0.02",
 }
-
-
-def _fade_filters(clip: Clip, out_dur: float, audio: bool) -> str:
-    """fade/afade steps for a clip, positioned in output (post-speed) time.
-    Returns '' or a leading-comma filter fragment."""
-    name = "afade" if audio else "fade"
-    steps = []
-    if clip.fade_in > 0:
-        steps.append(f"{name}=t=in:st=0:d={min(clip.fade_in, out_dur):.4f}")
-    if clip.fade_out > 0:
-        d = min(clip.fade_out, out_dur)
-        steps.append(f"{name}=t=out:st={max(0.0, out_dur - d):.4f}:d={d:.4f}")
-    return ("," + ",".join(steps)) if steps else ""
 
 
 def build_export_command(
@@ -245,70 +256,98 @@ def build_export_command(
     concat_refs: list[str] = []
     total_duration = 0.0
 
-    for i, clip in enumerate(timeline.clips):
+    seg_idx = 0  # one ffmpeg input per constant-speed segment
+    for clip in timeline.clips:
         src = asset_paths.get(clip.asset_id)
         info = asset_info.get(clip.asset_id)
         if src is None or info is None:
             raise FFmpegError(f"Clip {clip.id}: unknown asset {clip.asset_id}")
 
-        inputs += ["-i", src]
         end = clip.end if clip.end is not None else (info.duration or 0.0)
         if end <= clip.start:
             raise FFmpegError(f"Clip {clip.id}: end ({end}) must be after start ({clip.start})")
-        out_dur = _clip_duration(clip, info.duration)
-        total_duration += out_dur
+        segments = _clip_segments(clip, info.duration)
+        clip_out_dur = _clip_duration(clip, info.duration)
+        total_duration += clip_out_dur
 
-        # ---- video chain: trim -> speed -> normalise -> overlays
-        # NOTE: no per-clip fps filter. In ffmpeg 4.x, fps= placed after trim
-        # pads the segment back out to the source duration on flush, silently
-        # inflating clips (docs/ERRORS-AND-FIXES.md #16). Frame rate is
-        # normalised once at the output with -r instead; concat only needs
-        # matching resolution + pixel format.
-        v = (
-            f"[{i}:v]trim=start={clip.start}:end={end},"
-            f"setpts=(PTS-STARTPTS)/{clip.speed},"
-            f"scale={OUT_W}:{OUT_H}:force_original_aspect_ratio=decrease,"
-            f"pad={OUT_W}:{OUT_H}:(ow-iw)/2:(oh-ih)/2,"
-            f"format=yuv420p"
-        )
-        if clip.filter in _CLIP_FILTERS:
-            v += "," + _CLIP_FILTERS[clip.filter]
-        v += _fade_filters(clip, out_dur, audio=False)
-        for ov in clip.overlays:
-            ov_end = ov.end if ov.end is not None else out_dur
-            # fontfile is deliberately NOT quoted (paths have no spaces; the
-            # drive colon is already backslash-escaped). expansion=none makes
-            # drawtext render the text literally (no %{...} processing).
-            v += (
-                f",drawtext=fontfile={font}:text='{_escape_drawtext(ov.text)}'"
-                f":expansion=none"
-                f":fontsize={ov.font_size}:fontcolor={ov.color}"
-                f":x={ov.x}:y={ov.y}"
-                f":enable='between(t,{ov.start},{ov_end})'"
-                f":box=1:boxcolor=black@0.35:boxborderw=12"
-            )
-        v += f"[v{i}]"
-        filters.append(v)
+        seg_out_start = 0.0  # segment's start in the clip's OUTPUT time
+        for s_idx, (s, e, speed) in enumerate(segments):
+            i = seg_idx
+            seg_idx += 1
+            inputs += ["-i", src]
+            seg_out = (e - s) / speed
+            first, last = s_idx == 0, s_idx == len(segments) - 1
 
-        # ---- audio chain: real audio or injected silence (gotcha #3)
-        if info.has_audio:
-            a = (
-                f"[{i}:a]atrim=start={clip.start}:end={end},"
-                f"asetpts=PTS-STARTPTS,{_atempo_chain(clip.speed)},"
-                f"volume={clip.volume}"
-                f"{_fade_filters(clip, out_dur, audio=True)},"
-                f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo[a{i}]"
-            )
-        else:
-            a = (
-                f"anullsrc=channel_layout=stereo:sample_rate={AUDIO_RATE},"
-                f"atrim=duration={out_dur:.4f}[a{i}]"
-            )
-        filters.append(a)
-        concat_refs.append(f"[v{i}][a{i}]")
+            # Fades live on the clip; apply in on the first segment, out on
+            # the last, clamped to that segment's own output duration.
+            fades_v, fades_a = [], []
+            if first and clip.fade_in > 0:
+                d = min(clip.fade_in, seg_out)
+                fades_v.append(f"fade=t=in:st=0:d={d:.4f}")
+                fades_a.append(f"afade=t=in:st=0:d={d:.4f}")
+            if last and clip.fade_out > 0:
+                d = min(clip.fade_out, seg_out)
+                st = max(0.0, seg_out - d)
+                fades_v.append(f"fade=t=out:st={st:.4f}:d={d:.4f}")
+                fades_a.append(f"afade=t=out:st={st:.4f}:d={d:.4f}")
 
-    n = len(timeline.clips)
-    filters.append(f"{''.join(concat_refs)}concat=n={n}:v=1:a=1[vout][aout]")
+            # ---- video chain: trim -> speed -> normalise -> overlays
+            # NOTE: no per-segment fps filter. In ffmpeg 4.x, fps= placed
+            # after trim pads the segment back out to the source duration on
+            # flush, silently inflating clips (docs/ERRORS-AND-FIXES.md #16).
+            # Frame rate is normalised once at the output with -r instead.
+            v = (
+                f"[{i}:v]trim=start={s}:end={e},"
+                f"setpts=(PTS-STARTPTS)/{speed},"
+                f"scale={OUT_W}:{OUT_H}:force_original_aspect_ratio=decrease,"
+                f"pad={OUT_W}:{OUT_H}:(ow-iw)/2:(oh-ih)/2,"
+                f"format=yuv420p"
+            )
+            if clip.filter in _CLIP_FILTERS:
+                v += "," + _CLIP_FILTERS[clip.filter]
+            if fades_v:
+                v += "," + ",".join(fades_v)
+            for ov in clip.overlays:
+                # Overlay windows are in clip output time; intersect with this
+                # segment's output span and shift to segment-local time.
+                ov_end = ov.end if ov.end is not None else clip_out_dur
+                lo = max(0.0, ov.start - seg_out_start)
+                hi = min(seg_out, ov_end - seg_out_start)
+                if hi <= lo:
+                    continue
+                # fontfile is deliberately NOT quoted (paths have no spaces;
+                # the drive colon is already backslash-escaped).
+                # expansion=none makes drawtext render the text literally.
+                v += (
+                    f",drawtext=fontfile={font}:text='{_escape_drawtext(ov.text)}'"
+                    f":expansion=none"
+                    f":fontsize={ov.font_size}:fontcolor={ov.color}"
+                    f":x={ov.x}:y={ov.y}"
+                    f":enable='between(t,{lo:.4f},{hi:.4f})'"
+                    f":box=1:boxcolor=black@0.35:boxborderw=12"
+                )
+            v += f"[v{i}]"
+            filters.append(v)
+
+            # ---- audio chain: real audio or injected silence (gotcha #3)
+            if info.has_audio:
+                a = (
+                    f"[{i}:a]atrim=start={s}:end={e},"
+                    f"asetpts=PTS-STARTPTS,{_atempo_chain(speed)},"
+                    f"volume={clip.volume}"
+                    f"{(',' + ','.join(fades_a)) if fades_a else ''},"
+                    f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo[a{i}]"
+                )
+            else:
+                a = (
+                    f"anullsrc=channel_layout=stereo:sample_rate={AUDIO_RATE},"
+                    f"atrim=duration={seg_out:.4f}[a{i}]"
+                )
+            filters.append(a)
+            concat_refs.append(f"[v{i}][a{i}]")
+            seg_out_start += seg_out
+
+    filters.append(f"{''.join(concat_refs)}concat=n={seg_idx}:v=1:a=1[vout][aout]")
 
     argv = [
         ffmpeg, "-y", *inputs,

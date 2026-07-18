@@ -3,11 +3,40 @@
 
 import type { Clip, MediaAsset, Timeline } from "./types";
 
-/** Output duration of a clip in seconds, accounting for speed. */
-export function clipDuration(clip: Clip, assets: Map<string, MediaAsset>): number {
+/** Constant-speed pieces of a clip (source in/out + speed). Mirrors the
+ * backend's _clip_segments so preview timing matches the export. */
+export function clipSegments(
+  clip: Clip,
+  assets: Map<string, MediaAsset>,
+): { srcStart: number; srcEnd: number; speed: number }[] {
   const sourceEnd =
     clip.end ?? assets.get(clip.asset_id)?.duration ?? clip.start;
-  return Math.max(0, (sourceEnd - clip.start) / clip.speed);
+  const ramp = clip.speed_ramp ?? [];
+  if (ramp.length === 0) {
+    return [{ srcStart: clip.start, srcEnd: sourceEnd, speed: clip.speed }];
+  }
+  const pts = ramp.filter((p) => clip.start + p.at < sourceEnd);
+  const segs = pts
+    .map((p, j) => ({
+      srcStart: clip.start + p.at,
+      srcEnd:
+        j + 1 < pts.length
+          ? Math.min(sourceEnd, clip.start + pts[j + 1].at)
+          : sourceEnd,
+      speed: p.speed,
+    }))
+    .filter((s) => s.srcEnd > s.srcStart);
+  return segs.length > 0
+    ? segs
+    : [{ srcStart: clip.start, srcEnd: sourceEnd, speed: clip.speed }];
+}
+
+/** Output duration of a clip in seconds, accounting for speed (ramped or constant). */
+export function clipDuration(clip: Clip, assets: Map<string, MediaAsset>): number {
+  return clipSegments(clip, assets).reduce(
+    (sum, s) => sum + Math.max(0, (s.srcEnd - s.srcStart) / s.speed),
+    0,
+  );
 }
 
 /** Total output duration of the timeline. */
@@ -22,6 +51,29 @@ export interface PlayheadPosition {
   offsetInClip: number;
   /** Seek position in the SOURCE file, seconds. */
   sourceTime: number;
+  /** Playback speed at this moment (the active ramp segment's, or the clip's). */
+  speed: number;
+}
+
+/** Map a clip-output offset to (sourceTime, speed) through the clip's segments. */
+function locateInClip(
+  clip: Clip,
+  assets: Map<string, MediaAsset>,
+  offset: number,
+): { sourceTime: number; speed: number } {
+  const segs = clipSegments(clip, assets);
+  let remaining = offset;
+  for (const s of segs) {
+    const segOut = (s.srcEnd - s.srcStart) / s.speed;
+    if (remaining <= segOut || s === segs[segs.length - 1]) {
+      return {
+        sourceTime: s.srcStart + Math.min(remaining, segOut) * s.speed,
+        speed: s.speed,
+      };
+    }
+    remaining -= segOut;
+  }
+  return { sourceTime: clip.start, speed: clip.speed };
 }
 
 /** Map a global timeline time to the clip playing at that moment. */
@@ -40,7 +92,7 @@ export function clipAtTime(
         clip,
         clipIndex: i,
         offsetInClip: offset,
-        sourceTime: clip.start + offset * clip.speed,
+        ...locateInClip(clip, assets, offset),
       };
     }
     acc += dur;

@@ -74,6 +74,52 @@ def test_speed_and_volume_bounds():
         ex.execute("set_volume", {"clip_id": "c1", "volume": -1})
 
 
+def test_set_speed_ramp_validates_and_applies():
+    tl = Timeline(clips=[Clip(id="c1", asset_id="a1", start=0.0, end=10.0)])
+    ex = ToolExecutor(tl, make_assets())
+    ex.execute("set_speed_ramp", {
+        "clip_id": "c1",
+        "points": [{"at": 0, "speed": 1.0}, {"at": 4, "speed": 0.5}],
+    })
+    assert [(p.at, p.speed) for p in tl.clips[0].speed_ramp] == [(0, 1.0), (4, 0.5)]
+    assert "speed_ramp=" in ex.execute("get_timeline", {})
+
+    with pytest.raises(ValueError, match="at=0"):
+        ex.execute("set_speed_ramp", {"clip_id": "c1", "points": [{"at": 1, "speed": 1.0}]})
+    with pytest.raises(ValueError, match="ascending"):
+        ex.execute("set_speed_ramp", {"clip_id": "c1", "points": [
+            {"at": 0, "speed": 1.0}, {"at": 3, "speed": 2.0}, {"at": 3, "speed": 1.0},
+        ]})
+    with pytest.raises(ValueError, match="beyond"):
+        ex.execute("set_speed_ramp", {"clip_id": "c1", "points": [
+            {"at": 0, "speed": 1.0}, {"at": 15, "speed": 2.0},
+        ]})
+
+    # Clearing: empty list, or setting a constant speed.
+    ex.execute("set_speed_ramp", {"clip_id": "c1", "points": []})
+    assert tl.clips[0].speed_ramp == []
+    ex.execute("set_speed_ramp", {
+        "clip_id": "c1", "points": [{"at": 0, "speed": 2.0}],
+    })
+    ex.execute("set_speed", {"clip_id": "c1", "speed": 1.5})
+    assert tl.clips[0].speed_ramp == [] and tl.clips[0].speed == 1.5
+
+
+def test_split_clip_splits_the_speed_ramp():
+    from app.models import SpeedPoint
+    clip = Clip(
+        id="c1", asset_id="a1", start=0.0, end=10.0,
+        speed_ramp=[SpeedPoint(at=0, speed=1.0), SpeedPoint(at=6, speed=2.0)],
+    )
+    ex = ToolExecutor(Timeline(clips=[clip]), make_assets())
+    ex.execute("split_clip", {"clip_id": "c1", "at": 4.0})
+    first, second = ex.timeline.clips
+    assert [(p.at, p.speed) for p in first.speed_ramp] == [(0.0, 1.0)]
+    # Second half re-anchored at 0 with the speed active at the cut (1x),
+    # then the original 6s point shifted to 2s.
+    assert [(p.at, p.speed) for p in second.speed_ramp] == [(0.0, 1.0), (2.0, 2.0)]
+
+
 def test_overlay_vertical_positions():
     tl = Timeline(clips=[Clip(id="c1", asset_id="a1")])
     ex = ToolExecutor(tl, make_assets())

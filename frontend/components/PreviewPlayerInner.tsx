@@ -75,12 +75,14 @@ export default function PreviewPlayerInner({
     if (Math.abs(video.currentTime - pos.sourceTime) > 0.25) {
       video.currentTime = pos.sourceTime;
     }
-    video.playbackRate = pos.clip.speed;
+    video.playbackRate = pos.speed;
     video.volume = Math.min(1, pos.clip.volume);
     if (playing) video.play().catch(() => setPlaying(false));
     else video.pause();
+    // pos.speed in the deps keeps playbackRate tracking speed-ramp segments
+    // mid-clip, not just on clip changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentAssetId, playing]);
+  }, [currentAssetId, playing, pos?.speed]);
 
   // Advance the playhead while playing (drives clip transitions).
   useEffect(() => {

@@ -10,7 +10,7 @@ false + required) so tool inputs are guaranteed to validate.
 import uuid
 from typing import Any
 
-from ...models import CLIP_FILTERS, Clip, MediaAsset, TextOverlay, Timeline
+from ...models import CLIP_FILTERS, Clip, MediaAsset, SpeedPoint, TextOverlay, Timeline
 
 # --------------------------------------------------------------------------
 # Tool schemas (Anthropic tool-use format, strict)
@@ -99,6 +99,37 @@ TOOLS: list[dict] = [
         "input_schema": _schema(
             {"clip_id": {"type": "string"}, "speed": {"type": "number"}},
             ["clip_id", "speed"],
+        ),
+    },
+    {
+        "name": "set_speed_ramp",
+        "description": (
+            "Set a speed ramp (velocity curve) on a clip: a list of points "
+            "{at, speed} where `at` is seconds into the clip's source segment "
+            "(relative to its in-point) and `speed` applies from that point "
+            "until the next. The first point must have at=0 and points must "
+            "be ascending. Example dramatic ramp: [{at:0, speed:1}, {at:2, "
+            "speed:0.3}, {at:3, speed:1}]. Pass an empty list to remove the "
+            "ramp and return to the clip's constant speed."
+        ),
+        "strict": True,
+        "input_schema": _schema(
+            {
+                "clip_id": {"type": "string"},
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "at": {"type": "number", "description": "Seconds after the clip's in-point"},
+                            "speed": {"type": "number", "description": "0.1-10.0"},
+                        },
+                        "required": ["at", "speed"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            ["clip_id", "points"],
         ),
     },
     {
@@ -224,6 +255,22 @@ TOOLS: list[dict] = [
 _V_POS = {"top": "40", "center": "(h-text_h)/2", "bottom": "h-th-40"}
 
 
+def _output_time_at(clip: Clip, at: float) -> float:
+    """Output (post-speed) seconds elapsed at source offset `at` into a clip,
+    honouring a speed ramp if present."""
+    if not clip.speed_ramp:
+        return at / clip.speed
+    out = 0.0
+    pts = clip.speed_ramp
+    for j, p in enumerate(pts):
+        nxt = pts[j + 1].at if j + 1 < len(pts) else float("inf")
+        span = min(nxt, at) - p.at
+        if span <= 0:
+            break
+        out += span / p.speed
+    return out
+
+
 class ToolExecutor:
     """Applies tool calls to an in-memory Timeline copy.
 
@@ -262,6 +309,9 @@ class ToolExecutor:
                 extras += f" fade_in={c.fade_in}s fade_out={c.fade_out}s"
             if c.filter != "none":
                 extras += f" filter={c.filter}"
+            if c.speed_ramp:
+                ramp = ",".join(f"{p.at:.1f}s:{p.speed}x" for p in c.speed_ramp)
+                extras += f" speed_ramp=[{ramp}]"
             lines.append(
                 f"{i}: clip_id={c.id} source='{name}' in={c.start:.2f}s out={end} "
                 f"speed={c.speed}x volume={c.volume} overlays={len(c.overlays)}{extras}"
@@ -335,9 +385,43 @@ class ToolExecutor:
     def _tool_set_speed(self, clip_id: str, speed: float) -> str:
         if not 0.1 <= speed <= 10.0:
             raise ValueError("speed must be between 0.1 and 10.0")
-        self._clip(clip_id).speed = speed
+        clip = self._clip(clip_id)
+        clip.speed = speed
+        had_ramp = bool(clip.speed_ramp)
+        clip.speed_ramp = []
         self.mutated = True
-        return f"Clip {clip_id} speed set to {speed}x."
+        note = " (speed ramp removed)" if had_ramp else ""
+        return f"Clip {clip_id} speed set to {speed}x{note}."
+
+    def _tool_set_speed_ramp(self, clip_id: str, points: list) -> str:
+        clip = self._clip(clip_id)
+        if not points:
+            clip.speed_ramp = []
+            self.mutated = True
+            return f"Clip {clip_id} speed ramp removed (constant {clip.speed}x)."
+        asset = self.assets.get(clip.asset_id)
+        end = clip.end if clip.end is not None else (
+            asset.duration if asset and asset.duration is not None else None
+        )
+        span = (end - clip.start) if end is not None else None
+        try:
+            ramp = [SpeedPoint.model_validate(p) for p in points]
+        except Exception as exc:
+            raise ValueError(f"Invalid ramp point: {exc}") from exc
+        if ramp[0].at != 0:
+            raise ValueError("The first ramp point must have at=0")
+        ats = [p.at for p in ramp]
+        if any(b <= a for a, b in zip(ats, ats[1:])):
+            raise ValueError("Ramp points must be strictly ascending in `at`")
+        if span is not None and ats[-1] >= span:
+            raise ValueError(
+                f"Last point at={ats[-1]}s is beyond the clip's source span "
+                f"({span:.2f}s after its in-point)"
+            )
+        clip.speed_ramp = ramp
+        self.mutated = True
+        desc = ", ".join(f"{p.at:.2f}s->{p.speed}x" for p in ramp)
+        return f"Clip {clip_id} speed ramp set: {desc}."
 
     def _tool_set_volume(self, clip_id: str, volume: float) -> str:
         if not 0.0 <= volume <= 5.0:
@@ -366,9 +450,21 @@ class ToolExecutor:
         second.id = uuid.uuid4().hex
         second.start, second.end = cut, end
         clip.end = cut
+        # A speed ramp is split too: each half keeps the points on its side,
+        # the second half re-anchored at 0 with the speed active at the cut.
+        if clip.speed_ramp:
+            ramp = clip.speed_ramp
+            speed_at_cut = next(
+                (p.speed for p in reversed(ramp) if p.at <= at), clip.speed
+            )
+            clip.speed_ramp = [p for p in ramp if p.at < at]
+            tail = [
+                SpeedPoint(at=p.at - at, speed=p.speed) for p in ramp if p.at > at
+            ]
+            second.speed_ramp = [SpeedPoint(at=0.0, speed=speed_at_cut)] + tail
         # Overlays are clip-relative in output time; hand each to the side it
         # starts on, shifting the second clip's back by the cut offset.
-        boundary = at / clip.speed
+        boundary = _output_time_at(clip, at)
         first_ov, second_ov = [], []
         for ov in clip.overlays:
             if ov.start < boundary:
